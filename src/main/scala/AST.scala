@@ -3,6 +3,7 @@ import scala.jdk.FunctionWrappers.RichFunction1AsDoubleToIntFunction
 import scala.annotation.meta.param
 import scala.collection.immutable.HashMap
 
+def withoutSeperators(str:String) = str.replaceAll("[ \t]", "")
 def stripNameFromSeperators(str:String) = 
     val parts = str.split("[ \t]").filter(x => !x.isEmpty && x != " " && x != "\t")
     if(parts.length != 1) throw new RuntimeException("illegal identifier: " + str)
@@ -10,7 +11,7 @@ def stripNameFromSeperators(str:String) =
 
 
 abstract class Node
-case class Program(adts:Array[ADT]) extends Node
+case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
 
 case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:HashSet[String]) extends Node
 
@@ -38,7 +39,12 @@ class AST(lines:Array[String]):
             
         if adts.length % 2 != 0 then
             throw new RuntimeException("Pairs of adts and ends do not match correctly!")
-        new Program(adts.grouped(2).map(arr => parseADT(lines.slice(arr(0), arr(1)))).toArray)
+        val adtspaces = (adts grouped(2)).toList
+        //lines in adts as hashset for contains performance
+        val containedLines = HashSet.from((adtspaces flatMap (x => x(0) to x(1))))
+        //lines that are not already in scope of a adt
+        val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => lines(i)) filter(!withoutSeperators(_).isEmpty)
+        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)))).toArray, (eqlines map parseEq).toArray)
 
     def parseADT(lines:Array[String]):ADT =
         val name = 

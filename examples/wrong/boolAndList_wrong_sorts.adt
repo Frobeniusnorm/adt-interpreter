@@ -14,9 +14,8 @@ axs
     or(true, x) = true
     or(false, x) = x
 end
-
 adt List
-sorts List, Boolean
+sorts List
 ops
     Nil:                -> List
     cons: Boolean x List -> List
@@ -30,5 +29,3 @@ axs
     tail(cons(e,x)) = x
     tail(Nil) = Nil
 end
-
-concat(cons(true, cons(false, Nil)), cons(false, cons(true, Nil)))

@@ -16,15 +16,5 @@ def main: Array[String] => Unit = args => args match
       np.adts.foreach(x => 
         val adt = x.asInstanceOf[ADT]
         println(adt.name)
-        println("ops: ")
-        adt.ops.foreach(x =>
-          val y = x.asInstanceOf[Operation]
-          print(y.name + " takes (" + y.par.length + "): ")
-          y.par.foreach(z => print(z + " "))
-          print("returns " + y.ret)
-          println()
-        )
-        println("axs: ")
-        adt.axs.foreach(println)
       )
-  case _ => printHelp
+      ast.program.expr.foreach(println)

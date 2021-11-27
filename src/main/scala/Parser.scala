@@ -2,7 +2,6 @@ import scala.collection.immutable.HashMap
 import scala.collection.immutable.HashSet
 
 object Parser:
-    
     def parseProgram(prog:Program):Program = 
         val namespaces:HashMap[String, HashSet[Operation]] = HashMap.from(prog.adts map(x => x.name -> x.ops))
         //helper functions:
@@ -66,7 +65,7 @@ object Parser:
                     new RecEq(name, np)
         //top level logic:
         prog.adts foreach (checkNames)
-        new Program(prog.adts map checkAndUpdateTypes)
+        new Program(prog.adts map checkAndUpdateTypes, prog.expr)
                             
             
 
