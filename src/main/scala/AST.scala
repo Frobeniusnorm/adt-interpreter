@@ -1,6 +1,7 @@
 import scala.collection.immutable.HashSet
 import scala.jdk.FunctionWrappers.RichFunction1AsDoubleToIntFunction
 import scala.annotation.meta.param
+import scala.collection.immutable.HashMap
 
 def stripNameFromSeperators(str:String) = 
     val parts = str.split("[ \t]").filter(x => !x.isEmpty && x != " " && x != "\t")
@@ -15,12 +16,15 @@ case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:Hash
 
 case class Operation(name:String, par:Array[String], ret:String) extends Node
 
-abstract class Equation(val operation:String)
+abstract class Equation(val operation:String):
+    def getVariables : HashMap[String, AtomEq]
 case class AtomEq(op:String, varType:Option[String] = None) extends Equation(op):
     def makeTypedVar(typ:String) = AtomEq(operation, Some(typ))
+    override def getVariables : HashMap[String, AtomEq] = if varType.isEmpty then HashMap.empty[String, AtomEq] else HashMap((op, this))
     override def toString() = operation
 
 case class RecEq(op:String, params:Array[Equation]) extends Equation(op):
+    override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
     override def toString() = operation + "(" + params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
 case class Axiom(left:Equation, right:Equation) extends Node:
     override def toString() = left.toString + " = " + right.toString

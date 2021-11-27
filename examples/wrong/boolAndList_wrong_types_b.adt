@@ -1,0 +1,31 @@
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+    false:                     -> Boolean
+    not:   Boolean             -> Boolean
+    and:   Boolean x Boolean   -> Boolean
+    or:    Boolean x Boolean   -> Boolean
+axs
+    not(true) = false
+    not(false) = true
+    and(true, x) = x
+    and(false,x) = false
+    or(true, x) = true
+    or(false, x) = x
+end
+adt List
+sorts List, Boolean
+ops
+    Nil:                -> List
+    cons: Boolean x List -> List
+    concat: List x List -> List
+    head: List          -> Boolean
+    tail: List          -> List
+axs
+    concat(Nil, x) = x
+    concat(e, y) = cons(e, concat(x,y))
+    head(cons(e,x)) = e
+    tail(cons(e,x)) = x
+    tail(Nil) = Nil
+end
