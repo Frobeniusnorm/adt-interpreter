@@ -31,9 +31,12 @@ object Parser:
                         for zeqp <- (op.par zip e) yield
                             val sep = checkAndUpdateEquationType(ops)(zeqp._2)
                             //TODO check if sep is atomiceq as var
-                            if !(ops contains sep.operation) || !(ops(sep.operation).ret equals zeqp._1) then
-                                throw new RuntimeException("Type error: could not match \"" + sep.operation + "\" with expected type \"" + zeqp._1 + "\" in function call for \"" + name + "\"")
-                            sep
+                            sep match
+                                case AtomEq(name, Some(_)) => AtomEq(name, Some(zeqp._1))
+                                case _ =>
+                                    if !(ops contains sep.operation) || !(ops(sep.operation).ret equals zeqp._1) then
+                                        throw new RuntimeException("Type error: could not match \"" + sep.operation + "\" with expected type \"" + zeqp._1 + "\" in function call for \"" + name + "\"")
+                                    sep
                     new RecEq(name, np)
         //top level logic:
         prog.adts foreach (checkNames)

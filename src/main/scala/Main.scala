@@ -5,7 +5,7 @@ def printHelp: Unit =
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 @main 
-def test:Unit = main(Array[String]("test.adt"))
+def test:Unit = main(Array[String]("examples/correct/boolAndList.adt"))
 def main: Array[String] => Unit = args => args match
   case Array() => printHelp
   case x => 
