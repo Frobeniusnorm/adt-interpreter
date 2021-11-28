@@ -31,4 +31,4 @@ axs
     tail(Nil) = Nil
 end
 
-concat(cons(true, cons(false, Nil)), cons(false, cons(true, Nil)))
+tail(concat(cons(true, cons(false, Nil)), cons(false, cons(true, Nil))))
