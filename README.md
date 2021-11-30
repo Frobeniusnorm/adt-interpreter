@@ -62,6 +62,7 @@ Operator overloading is only allowed between types, not in types itself. This me
 
 ## TODOs
  - Type Overloading inside adts
+ - Generic Types
  - More tests
  - Help command
 
