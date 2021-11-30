@@ -57,7 +57,7 @@ The Operation Section lists all valid Operations and their types. Each Operation
 The ``axs``section provide reduction rules as equations. The left expression is then reducible to the right one (they allow an adt to be seen as a term rewriting system). 
 
 Before, inbetween and after the axiom definitions, single expressions are allowed which will be evaluated to its normal form by the interpreter and printed on the console.
-E.g. ``and(not(false), or(not(true), not(not(true)))`` will be evaluated to ``true``.
+E.g. ``and(not(false), or(not(true), not(not(true))))`` will be evaluated to ``true``.
 Operator overloading is only allowed between types, not in types itself. This means two adts are allowed to define operators with the same name as long they don't sort each other. During evaluation the operation with the correct type will be choosen, if both are possible the one earlier defined is used.
 
 ## TODOs
