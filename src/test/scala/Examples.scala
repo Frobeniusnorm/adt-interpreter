@@ -29,3 +29,22 @@ class ExamplesTest extends AnyFunSuite with Matchers:
               case _ => println(x.getName + " passed")
       }
     }
+    val results = new File("examples/withResults/").listFiles.groupBy(x => x.getName.split("\\.")(0))
+    test("results"){
+      forEvery(results){
+        x => 
+          val res = x._2.filter(x => x.getName.endsWith("result"))(0)
+          val adt = x._2.filter(x => x.getName.endsWith("adt"))(0)
+          val ast = new AST(readFile(adt.getPath))
+          val np = Parser.parseProgram(ast.program)
+          val interpreter = new Interpreter(np)
+
+          val expects = readFile(res.getPath)
+          val test = (interpreter.evaledExpr zip expects) 
+          for (z,y) <- test do
+            if z.toString != y then
+              fail("Wrong evaluated expression in Test: \"" + x._1 + "\", expected: \"" + y + "\" got: \"" + z.toString + "\"")
+            else 
+              println("Passed \"" + x._1 + "\"")
+      }
+    }
