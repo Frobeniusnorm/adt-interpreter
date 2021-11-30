@@ -30,5 +30,5 @@ axs
     tail(cons(e,x)) = x
     tail(Nil) = Nil
 end
-
+and(not(false), or(not(true), not(not(true))))
 tail(concat(cons(true, cons(false, Nil)), cons(false, cons(true, Nil))))

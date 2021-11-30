@@ -1,0 +1,6 @@
+adt test
+sorts test
+ops
+    t1: -> test
+    t2: test -> test
+end

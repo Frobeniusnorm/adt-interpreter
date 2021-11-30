@@ -69,7 +69,7 @@ class AST(lines:Array[String]):
             if(opslines.length > 1) throw new RuntimeException("Only one operations part is allowed per datatype!")
             if(opslines(0)._1.length != 3) throw new RuntimeException("Illegal characters after ops: " + opslines(0)._1)
             val start = opslines(0)._2
-            val term = lines.zipWithIndex.filter((x, i) => (x.startsWith("end") || x.startsWith("axs")) && i > start).map(_._2).min
+            val term = lines.zipWithIndex.filter((x, i) => ((i == lines.length -1) || x.startsWith("axs")) && i > start).map(_._2).min
             lines.slice(start + 1, term).map(parseOP)
         val axs = 
             val axslines = lines.zipWithIndex.filter((x, i) => x.startsWith("axs"))
