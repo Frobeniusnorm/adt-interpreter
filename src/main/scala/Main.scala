@@ -5,10 +5,12 @@ def printHelp: Unit =
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 @main
+def test() = main("examples/correct/boolAndList.adt")
+@main
 def main(file:String) =
   val ast = new AST(readFile(file))
   val np = Parser.parseProgram(ast.program)
   val interpreter = new Interpreter(np)
   (ast.program.expr zip interpreter.evaledExpr) foreach (
-    (x, y) => println(x.toString + " = " + y.toString)
+    (x, y) => println(x.toString + "\u001b[33m =\u001b[0m " + y.toString)
   )
