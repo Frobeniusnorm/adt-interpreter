@@ -8,7 +8,7 @@ equations on top-level-scope. Those are allowed to access all operations of all 
 defined in that file.
 
 ## Usage
-Pass the file name on the command line as an argument. There are not Options yet.
+Download the precompiled binary (or build by yourself) and pass the to-evaluate adt file name on the command line as an argument. There are no options yet.
 
 ## Build
 You need the JDK 8 or higher, the Scala Compiler Version 3 and sbt. Then just clone the project and execute `sbt run` to build and run it.
