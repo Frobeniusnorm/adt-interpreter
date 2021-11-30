@@ -56,8 +56,8 @@ object Parser:
                         for zeqp <- (op.par zip e) yield
                             val sep = checkAndUpdateEquationType(ops)(zeqp._2)
                             sep match
-                                case AtomEq(name, Some(_)) => 
-                                    AtomEq(name, Some(zeqp._1))
+                                case AtomEq(n2, Some(_)) => 
+                                    AtomEq(n2, Some(zeqp._1))
                                 case _ =>
                                     if !(ops contains sep.operation) || !(ops(sep.operation).ret equals zeqp._1) then
                                         throw new RuntimeException("Type error: could not match \"" + sep.operation + "\" with expected type \"" + zeqp._1 + "\" in function call for \"" + name + "\"")
@@ -65,6 +65,7 @@ object Parser:
                     new RecEq(name, np)
         //top level logic:
         prog.adts foreach (checkNames)
+        //type expression
         new Program(prog.adts map checkAndUpdateTypes, prog.expr)
                             
             

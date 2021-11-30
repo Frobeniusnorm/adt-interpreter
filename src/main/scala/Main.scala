@@ -13,8 +13,7 @@ def main: Array[String] => Unit = args => args match
     if x.length == 1 then
       val ast = new AST(readFile(x(0)))
       val np = Parser.parseProgram(ast.program)
-      np.adts.foreach(x => 
-        val adt = x.asInstanceOf[ADT]
-        println(adt.name)
+      val interpreter = new Interpreter(np)
+      (ast.program.expr zip interpreter.evaledExpr) foreach (
+        (x, y) => println(x.toString + " = " + y.toString)
       )
-      ast.program.expr.foreach(println)
