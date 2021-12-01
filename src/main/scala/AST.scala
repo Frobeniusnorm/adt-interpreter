@@ -9,7 +9,6 @@ def stripNameFromSeperators(str:String) =
     if(parts.length != 1) throw new RuntimeException("illegal identifier: " + str)
     parts(0)
 
-
 abstract class Node
 case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
 
@@ -31,6 +30,9 @@ case class AtomEq(op:String, varType:Option[String] = None) extends Equation(op)
 case class RecEq(op:String, params:Array[Equation]) extends Equation(op):
     override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
     override def toString() = "\u001b[35m" + operation + "\u001b[0m(" + params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
+//Conditional Equation
+case class Condition(left:Equation, equals:Boolean, right:Equation)
+
 
 case class Axiom(left:Equation, right:Equation) extends Node:
     override def toString() = left.toString + "\u001b[33m =\u001b[0m " + right.toString
@@ -83,7 +85,8 @@ class AST(lines:Array[String]):
                 if(axslines.length > 1) throw new RuntimeException("Only one axiom part is allowed per datatype!")
                 if(axslines(0)._1.length != 3) throw new RuntimeException("Illegal characters after axs: " + axslines(0)._1)
                 val start = axslines(0)._2
-                lines.slice(start + 1, lines.length).map(parseAx)
+                val nspace = lines.slice(start + 1, lines.length)
+                nspace.zipWithIndex map((x,i) => parseAx(i, nspace)) filter(!_.isEmpty) map(_.get)
         new ADT(name, axs, HashSet[Operation]() ++ ops, new HashSet[String]() ++ sorts)
     
     //Parses one Operation in one line
@@ -102,11 +105,14 @@ class AST(lines:Array[String]):
         else Array[String]()
         new Operation(name, par, ret)
 
-    //parses one Axiom in one line
-    def parseAx(line:String):Axiom = 
+    //parses one Axiom in one line, but the axiom may consume multiple lines if it has a case statement in the right equation, in this case all the lines that are consumed by the axiom will yield None
+    def parseAx(index:Int, lines:Array[String]):Option[Axiom] = 
+        val line = lines(index)
+        if(line == null) None //has already been consumed
         val parts = line.split("=")
         if(parts.length != 2) throw new RuntimeException("An Axiom is always an equation with a left hand and right hand side sperated by a semicolon!")
-        new Axiom(parseEq(parts(0)), parseEq(parts(1)))
+        //TODO: detection if parts(1) starts an case statement, in that case collect all following lines that start with an | and parse those to an extra parse method
+        Some(new Axiom(parseEq(parts(0)), parseEq(parts(1))))
 
     //parses one Equation in one line
     def parseEq(line:String):Equation =
