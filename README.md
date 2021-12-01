@@ -61,10 +61,12 @@ E.g. ``and(not(false), or(not(true), not(not(true))))`` will be evaluated to ``t
 Operator overloading is only allowed between types, not in types itself. This means two adts are allowed to define operators with the same name as long they don't sort each other. During evaluation the operation with the correct type will be choosen, if both are possible the one earlier defined is used.
 
 ## TODOs
+ - if - cases as braces
  - Type Overloading inside adts
  - Generic Types
  - More tests
  - Help command
+ - interactive mode after reading adt definition with command line option
 
 ## Contribute
 Work through my unreadable code and look at the todos. I am more than happy to answer questions and review pull requests :)

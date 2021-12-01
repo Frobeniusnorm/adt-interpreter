@@ -37,6 +37,7 @@ case class Axiom(left:Equation, right:Equation) extends Node:
 
 class AST(lines:Array[String]):
     val program = parse(lines)
+    //selects and groups the lines into adt groups, selects all other lines as to be evaluated expressions and parsed both
     def parse(lines:Array[String]):Program =
         val adts = lines.zipWithIndex
             .map((line, i) => if line.startsWith("adt ") || line.startsWith("end") then i else -1)
@@ -50,7 +51,8 @@ class AST(lines:Array[String]):
         //lines that are not already in scope of a adt
         val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => lines(i)) filter(!withoutSeperators(_).isEmpty)
         new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)))).toArray, (eqlines map parseEq).toArray)
-
+    
+    //Parses an ADT by its lines and subelements (sorts, ops, axs) by selecting the corresponding lines and calling their parse operations
     def parseADT(lines:Array[String]):ADT =
         val name = 
             if !lines.isEmpty then
@@ -84,7 +86,7 @@ class AST(lines:Array[String]):
                 lines.slice(start + 1, lines.length).map(parseAx)
         new ADT(name, axs, HashSet[Operation]() ++ ops, new HashSet[String]() ++ sorts)
     
-
+    //Parses one Operation in one line
     def parseOP(line:String):Operation =
         val parts1 = line.split(":")
         if(parts1.length != 2) throw new RuntimeException("illegal operation definition: " + line)
@@ -100,12 +102,15 @@ class AST(lines:Array[String]):
         else Array[String]()
         new Operation(name, par, ret)
 
+    //parses one Axiom in one line
     def parseAx(line:String):Axiom = 
         val parts = line.split("=")
         if(parts.length != 2) throw new RuntimeException("An Axiom is always an equation with a left hand and right hand side sperated by a semicolon!")
         new Axiom(parseEq(parts(0)), parseEq(parts(1)))
 
+    //parses one Equation in one line
     def parseEq(line:String):Equation =
+        //extracts only the operation for the outer most brackets and leaves the other ones as strings
         def splitFlatParamSpace(str:String):Array[String] = 
             val flr = str.foldLeft((0, List[String]("")))((acc, x) => 
                 (if x == '(' then acc._1 + 1 else if x == ')' then acc._1 - 1 else acc._1,

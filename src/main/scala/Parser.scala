@@ -5,7 +5,11 @@ object Parser:
     def parseProgram(prog:Program):Program = 
         val namespaces:HashMap[String, HashSet[Operation]] = HashMap.from(prog.adts map(x => x.name -> x.ops))
         //helper functions:
+        /**
+         * Checks if all used types appear in sorts
+         */ 
         def checkNames(adt:ADT) = 
+            //TODO all types that are not contained in namespaces -> local generics that may be used
             val knownTypes = HashSet.from(namespaces filter(x => adt.sorts contains(x._1)) map(x => x._1))
             //check operation names        
             for op <- adt.ops do
@@ -13,6 +17,9 @@ object Parser:
                     if !(knownTypes contains t) then 
                         throw new RuntimeException("Unknown Type \"" + t + "\" in ops of \"" + adt.name + "\"")
         
+        /**
+         * Checks types of all axioms of an adt and sets the variable types
+         */ 
         def checkAndUpdateTypes(adt:ADT):ADT =
             val knownOps = HashMap.from(namespaces filter(x => adt.sorts contains(x._1)) flatMap(x => x._2) map(x => x.name -> x))
             def checker = checkAndUpdateEquationType(knownOps)
@@ -44,7 +51,7 @@ object Parser:
             )
             new ADT(adt.name, axs, adt.ops, adt.sorts)
         //Every Equation must be typable, since it only has one outer operation
-        /** Updates AtomicEq which are variables and checks if the type of the equation is complete */ 
+        /** Updates AtomicEq that are variables and checks if the type of the equation is complete */ 
         def checkAndUpdateEquationType(ops:HashMap[String, Operation])(eq:Equation) : Equation = 
             eq match
                 case AtomEq(name, _) => if ops.contains(name) then AtomEq(name, None) else AtomEq(name, Some(""))
@@ -65,7 +72,6 @@ object Parser:
                     new RecEq(name, np)
         //top level logic:
         prog.adts foreach (checkNames)
-        //type expression
         new Program(prog.adts map checkAndUpdateTypes, prog.expr)
                             
             

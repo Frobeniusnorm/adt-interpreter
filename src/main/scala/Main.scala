@@ -4,8 +4,8 @@ def printHelp: Unit =
   println("help")
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
-@main
-def test() = main("examples/correct/boolAndList.adt")
+/* @main
+def test() = main("examples/correct/boolAndList.adt") */
 @main
 def main(file:String) =
   val ast = new AST(readFile(file))

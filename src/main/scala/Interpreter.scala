@@ -9,7 +9,9 @@ import scala.collection.mutable.OpenHashMap
 class Interpreter(prog:Program):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map reduceEquation)
-
+    /**
+     * Collects and Hashes all operations and Axioms
+     */ 
     def typeAndCollectAxioms(prog:Program) =
         val avOps = HashMap.from(prog.adts.foldLeft(HashSet.empty[Operation])((o, adt) => 
                         o ++ adt.ops) map (op => op.name -> op))
@@ -17,7 +19,9 @@ class Interpreter(prog:Program):
         val avAxs = HashMap.from(prog.adts flatMap(adt => 
             adt.axs groupBy (axs => axs.left.operation)))
         (avOps, avAxs)
-
+    /**
+     * Applies applyMatching as long as it matches something
+     */ 
     def reduceEquation(e:Equation):Equation =
         var x = e
         var m = applyMatching(x)
@@ -25,7 +29,11 @@ class Interpreter(prog:Program):
             x = m.get
             m = applyMatching(x)
         x
-    
+    /**
+     * Trys to find an matching axiom, if found applys it, else
+     * tries to match one of the parameter equations if the equation itself is a recursive equation.
+     * @return None if no axiom could be matched on the Equation, else Some(e) with e being the transformed equation
+     */
     def applyMatching(e:Equation):Option[Equation] = 
         e match
             case x:AtomEq => None
@@ -47,7 +55,11 @@ class Interpreter(prog:Program):
                         val np = Array.from(x.params)
                         np(i) = found.get
                         Some(new RecEq(x.op, np))
-
+    //TODO: fill and match type variables
+    //to do that create HashTable for Type variables just as for normal variables one step further
+    /**
+     * Checks if @param e matches @param ax, ax is usually the left hand side of an axiom
+     */ 
     def matches(ax:Equation, e:Equation):Boolean = 
         ax match 
             case AtomEq(_, Some(t)) => e match
@@ -62,7 +74,9 @@ class Interpreter(prog:Program):
                 case RecEq(ep, epar) =>
                     op == ep && ((opar zip epar) forall ((a, b) => matches(a, b)))
                 case _ => false
-            
+    /**
+     * Maps the Variables in @param ax to the expressions in @param e
+     */ 
     def fillVariables(e:Equation, ax:Equation) : HashMap[String, Equation] = ax match
         case AtomEq(name, Some(_)) => HashMap(name -> e)
         case AtomEq(op, None) => HashMap.empty[String, Equation]
