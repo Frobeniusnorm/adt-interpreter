@@ -69,7 +69,7 @@ The Condition may be else, which will always be fulfilled. The equation of the f
 Example for a partly redundant definition of an `xor` Axiom in the Boolean Type from above:
 ```
 ...
-  xor(x, y) = | true if x = true & y = false | x = false & y = true
+  xor(x, y) = | true if x = true & y = false | x = false & y = true | x != y
               | false else
 ...
 ```
