@@ -8,6 +8,12 @@ def stripNameFromSeperators(str:String) =
     val parts = str.split("[ \t]").filter(x => !x.isEmpty && x != " " && x != "\t")
     if(parts.length != 1) throw new RuntimeException("illegal identifier: " + str)
     parts(0)
+def splitAtFirst(str:String)(sep:Char) = 
+    val idx = str.indexOf(sep)
+    if idx == -1 then Array(str)
+    else if idx == 0 then Array(str.substring(1))
+    else if idx == str.length - 1 then Array(str.substring(0, str.length - 1))
+    else Array(str.substring(0, idx), str.substring(idx + 1, str.length))
 
 abstract class Node
 case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
@@ -31,8 +37,26 @@ case class RecEq(op:String, params:Array[Equation]) extends Equation(op):
     override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
     override def toString() = "\u001b[35m" + operation + "\u001b[0m(" + params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
 //Conditional Equation
-case class Condition(left:Equation, equals:Boolean, right:Equation)
+case class Condition(left:Equation, equals:Boolean, right:Equation):
+    def getVariables = if left == null || right == null then 
+        HashSet.empty[String]
+        else HashSet.from(left.getVariables.keySet)
 
+object Condition:
+    val elseCond = Literal(new Condition(null, true, null))
+
+abstract class LogicTerm:
+    def getVariables : HashSet[String]
+case class Literal(e:Condition) extends LogicTerm:
+    override def getVariables = e.getVariables
+case class Disjunction(parts:List[LogicTerm]) extends LogicTerm:
+    override def getVariables = parts.foldLeft (HashSet.empty[String]) ((acc, x) => acc ++ x.getVariables)
+case class Conjunction(parts:List[LogicTerm]) extends LogicTerm:
+    override def getVariables = parts.foldLeft (HashSet.empty[String]) ((acc, x) => acc ++ x.getVariables)
+
+//Case Equation: Equation -> and in first dimension, or in second dimension 
+case class CaseEq(cases : Array[(Equation, LogicTerm)]) extends Equation(""):
+    override def getVariables : HashMap[String, AtomEq] = cases.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e._1.getVariables)
 
 case class Axiom(left:Equation, right:Equation) extends Node:
     override def toString() = left.toString + "\u001b[33m =\u001b[0m " + right.toString
@@ -108,11 +132,19 @@ class AST(lines:Array[String]):
     //parses one Axiom in one line, but the axiom may consume multiple lines if it has a case statement in the right equation, in this case all the lines that are consumed by the axiom will yield None
     def parseAx(index:Int, lines:Array[String]):Option[Axiom] = 
         val line = lines(index)
-        if(line == null) None //has already been consumed
-        val parts = line.split("=")
-        if(parts.length != 2) throw new RuntimeException("An Axiom is always an equation with a left hand and right hand side sperated by a semicolon!")
-        //TODO: detection if parts(1) starts an case statement, in that case collect all following lines that start with an | and parse those to an extra parse method
-        Some(new Axiom(parseEq(parts(0)), parseEq(parts(1))))
+        if line == null || (withoutSeperators(line)).isEmpty then None //has already been consumed
+        else
+            val parts = splitAtFirst(line)('=')
+            if(parts.length != 2) throw new RuntimeException("An Axiom is always an equation with a left hand and right hand side sperated by a '='! " + line)
+            //TODO: detection if parts(1) starts an case statement, in that case collect all following lines that start with an | and parse those to an extra parse method
+            if withoutSeperators(parts(1)) startsWith("|") then
+                //yeay pain
+                val csl = lines.drop(index + 1).zipWithIndex takeWhile(l => 
+                    withoutSeperators(l._1) startsWith("|")
+                )
+                csl foreach (l => lines(l._2 + index + 1) = null)
+                Some(new Axiom(parseEq(parts(0)), parseCaseEq(Array(parts(1)) ++ (csl map (_._1)))))
+            else Some(new Axiom(parseEq(parts(0)), parseEq(parts(1))))
 
     //parses one Equation in one line
     def parseEq(line:String):Equation =
@@ -139,9 +171,50 @@ class AST(lines:Array[String]):
                 RecEq(stripNameFromSeperators(line.substring(0, opening)), Array(parseEq(paramspace)))
             else
                 RecEq(stripNameFromSeperators(line.substring(0, opening)), splitFlatParamSpace(paramspace).map(parseEq))
+    
+    def parseCaseEq(lines:Array[String]):CaseEq =
+        new CaseEq(lines.map (l => 
+            val cIf = l.contains(" if ")
+            val cEl = l.contains(" else")
+            if cIf && cEl then throw new RuntimeException("per case only one 'if' OR 'else' is allowed, not both!")
+            if !cIf && !cEl then throw new RuntimeException("per case one 'if' or 'else' is expected!")
+            if cIf then
+                val ecP = l.split(" if ")
+                if ecP.length != 2 then throw new RuntimeException("Only one 'if' per case allowed!")
+                (parseEq(ecP(0).replaceFirst("\\|", "")), parseLogicTerm(ecP(1)))
+            else
+                val ecP = l.replace("else", "").replaceFirst("\\|", "")
+                (parseEq(ecP), Condition.elseCond)
+        ))
+    //ands and ors, yes i love them
+    //example (a | b | c) & d & (e | f) | g = Conjunction(Disjunction(a,b,c), d, Disjunction(e, f))
+    def parseLogicTerm(line:String):LogicTerm =
+        if !line.contains("&") && !line.contains("|") then
+            Literal(parseCondition(line))
+        else
+            def splitFlat(str:String)(c:Char) = str.foldLeft((List[String](""), 0))((curr, x) => 
+                if x == '(' then 
+                    if curr._2 == 0 then (curr._1, curr._2 + 1)
+                    else ((x + curr._1.head) :: curr._1.tail, curr._2 + 1)
+                else if x == ')' then 
+                    if curr._2 == 1 then (curr._1, curr._2 - 1)
+                    else ((x + curr._1.head) :: curr._1.tail, curr._2 - 1)
+                else if curr._2 == 0 && x == c then ("" :: curr._1, curr._2)
+                else ((x + curr._1.head) :: curr._1.tail, curr._2)
+            )
+            //first try to collect all the disjunctive terms
+            val disj = splitFlat(line)('|')._1
+            if disj.length == 1 then 
+                val conj = splitFlat(line)('&')._1
+                Conjunction(conj.reverse map(x => parseLogicTerm(x.reverse)))
+            else Disjunction(disj.reverse map(x => parseLogicTerm(x.reverse)))
 
-
-
-
-
-
+    def parseCondition(line:String):Condition = 
+        if line.contains("!=") then 
+            val cP = line.split("!=")
+            if cP.length != 2 then throw new RuntimeException("Only exact one '=' or '!=' with one left and one right side per condition is allowed!")
+            new Condition(parseEq(cP(0)), false, parseEq(cP(1)))
+        else
+            val cP = line.split("=")
+            if cP.length != 2 then throw new RuntimeException("Only exact one '=' or '!=' with one left and one right side per condition is allowed!")
+            new Condition(parseEq(cP(0)), true, parseEq(cP(1)))

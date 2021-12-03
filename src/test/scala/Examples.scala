@@ -44,7 +44,6 @@ class ExamplesTest extends AnyFunSuite with Matchers:
           for (z,y) <- test do
             if z.toString.replaceAll("\u001B\\[[;\\d]*m", "") != y then
               fail("Wrong evaluated expression in Test: \"" + x._1 + "\", expected: \"" + y + "\" got: \"" + z.toString + "\"")
-            else 
-              println("Passed \"" + x._1 + "\"")
+          println("Passed \"" + x._1 + "\"")
       }
     }

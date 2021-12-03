@@ -73,7 +73,7 @@ class Interpreter(prog:Program):
             case RecEq(op, opar) => e match
                 case RecEq(ep, epar) =>
                     op == ep && ((opar zip epar) forall ((a, b) => matches(a, b)))
-                case _ => false
+                case _ => false //no case matching needed here
     /**
      * Maps the Variables in @param ax to the expressions in @param e
      */ 
@@ -90,5 +90,28 @@ class Interpreter(prog:Program):
             case AtomEq(name, Some(_)) => vars(name)
             case AtomEq(name, None) => a
             case RecEq(name, pars) => RecEq(name, pars map visitEquationsAndReplace)
-
+            case CaseEq(parts) =>
+                val res = parts find(x => isLogicTerm(vars)(x._2))
+                if res.isEmpty then throw new RuntimeException("Could not find fulfilling case predicate!")
+                res.get._1
+            //Here evaluate CondEq with its logic terms etc.
         visitEquationsAndReplace(ax.right)
+    //TODO: variablen ersetzen
+    def isLogicTerm(vars:(HashMap[String, Equation]))(lt:LogicTerm):Boolean = 
+        def rek = isLogicTerm(vars)
+        def insertVars(e:Equation):Equation = e match
+            case AtomEq(name, Some(_)) => vars(name)
+            case AtomEq(name, None) => e
+            case RecEq(name, pars) => RecEq(name, pars map insertVars)
+            case _ => throw new RuntimeException("Illegal equation type in logic term: " + e)
+        lt match
+            case Literal(Condition(x, e, y)) => 
+                if x == null || y == null then true //else case
+                else 
+                    val eq1 = reduceEquation(insertVars(x))
+                    val eq2 = reduceEquation(insertVars(y))
+                    if e then eq1.toString == eq2.toString else eq1.toString != eq2.toString
+            case Disjunction(parts) =>
+                parts exists (rek)
+            case Conjunction(parts) =>
+                parts forall (rek)
