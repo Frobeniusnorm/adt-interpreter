@@ -14,7 +14,8 @@ def splitAtFirst(str:String)(sep:Char) =
     else if idx == 0 then Array(str.substring(1))
     else if idx == str.length - 1 then Array(str.substring(0, str.length - 1))
     else Array(str.substring(0, idx), str.substring(idx + 1, str.length))
-
+def countMatches(str:String, pattern:String) = 
+    (str.length() - str.replace(pattern, "").length) / pattern.length
 abstract class Node
 case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
 
@@ -59,6 +60,7 @@ case class CaseEq(cases : Array[(Equation, LogicTerm)]) extends Equation(""):
     override def getVariables : HashMap[String, AtomEq] = cases.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e._1.getVariables)
 
 case class Axiom(left:Equation, right:Equation) extends Node:
+    var line:Int = -1
     override def toString() = left.toString + "\u001b[33m =\u001b[0m " + right.toString
 
 class AST(lines:Array[String]):
@@ -70,91 +72,98 @@ class AST(lines:Array[String]):
             .filter(_ != -1)
             
         if adts.length % 2 != 0 then
-            throw new RuntimeException("Pairs of adts and ends do not match correctly!")
+            throw new ParserException("Pairs of adts and ends do not match correctly!")
         val adtspaces = (adts grouped(2)).toList
         //lines in adts as hashset for contains performance
         val containedLines = HashSet.from((adtspaces flatMap (x => x(0) to x(1))))
         //lines that are not already in scope of a adt
         val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => lines(i)) filter(!withoutSeperators(_).isEmpty)
-        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)))).toArray, (eqlines map parseEq).toArray)
+        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray, (eqlines map (pel => parseEq(pel))).toArray)
     
     //Parses an ADT by its lines and subelements (sorts, ops, axs) by selecting the corresponding lines and calling their parse operations
-    def parseADT(lines:Array[String]):ADT =
+    def parseADT(lines:Array[String], starts:Int):ADT =
         val name = 
             if !lines.isEmpty then
                 val parts = lines(0).split(" ")
                 if lines(0).startsWith("adt ") && parts.length == 2 then
                   parts(1)  
-                else throw new RuntimeException("Could not parse line, illegal adt name: " + lines(0))
-            else throw new RuntimeException("Empty ADTs are not allowed")
+                else throw new ParserException("Illegal adt name: " + lines(0), starts)
+            else throw new ParserException("Empty ADTs are not allowed", starts)
         val sorts = 
-            val sortlines = lines.filter(_.startsWith("sorts "))
-            if(sortlines.length > 1) throw new RuntimeException("Too many sort statements for one datatype!")
-            if(sortlines.length < 1) throw new RuntimeException("Every Datatype needs one sorts-statement, because it must at least sort itself!")
-            if(sortlines(0).length < 7) throw new RuntimeException("A Datatype must at least sort itself!")
+            val sortlines_wi = lines.zipWithIndex.filter(_._1.startsWith("sorts "))
+            val sortlines = sortlines_wi map (_._1)
+            if(sortlines.length > 1) throw new ParserException("Too many sort statements for one datatype!", sortlines_wi(1)._2 + starts)
+            if(sortlines.length < 1) throw new ParserException("Every Datatype needs one sorts-statement, because it must at least sort itself!", starts)
+            if(sortlines(0).length < 7) throw new ParserException("A Datatype must at least sort itself!", sortlines_wi(0)._2 + starts)
+            LineTracker.registerLine("sorts(" + name + ")", sortlines_wi(0)._2 + starts)
             sortlines(0).substring(6).split(",").map(x => 
                 stripNameFromSeperators(x))
         val ops = 
             val opslines = lines.zipWithIndex.filter((x, i) => x.startsWith("ops"))
-            if(opslines.length == 0) throw new RuntimeException("Datatypes need an operations part, even if it may be empty")
-            if(opslines.length > 1) throw new RuntimeException("Only one operations part is allowed per datatype!")
-            if(opslines(0)._1.length != 3) throw new RuntimeException("Illegal characters after ops: " + opslines(0)._1)
+            if(opslines.length == 0) throw new ParserException("Datatypes need an operations part, even if it may be empty", starts)
+            if(opslines.length > 1) throw new ParserException("Only one operations part is allowed per datatype!", opslines(1)._2 + starts)
+            if(opslines(0)._1.length != 3) throw new ParserException("Illegal characters after ops: " + opslines(0)._1, opslines(0)._2)
             val start = opslines(0)._2
             val term = lines.zipWithIndex.filter((x, i) => ((i == lines.length -1) || x.startsWith("axs")) && i > start).map(_._2).min
-            lines.slice(start + 1, term).map(parseOP)
+            lines.slice(start + 1, term).zipWithIndex.filter(l => !withoutSeperators(l._1).isEmpty).map(l => parseOP(l._1, l._2 + start + 1 + starts))
         val axs = 
             val axslines = lines.zipWithIndex.filter((x, i) => x.startsWith("axs"))
             if axslines.length == 0 then Array[Axiom]()
             else
-                if(axslines.length > 1) throw new RuntimeException("Only one axiom part is allowed per datatype!")
-                if(axslines(0)._1.length != 3) throw new RuntimeException("Illegal characters after axs: " + axslines(0)._1)
+                if(axslines.length > 1) throw new ParserException("Only one axiom part is allowed per datatype!", axslines(1)._2 + starts)
+                if(axslines(0)._1.length != 3) throw new ParserException("Illegal characters after axs: " + axslines(0)._1, axslines(0)._2 + starts)
                 val start = axslines(0)._2
                 val nspace = lines.slice(start + 1, lines.length)
-                nspace.zipWithIndex map((x,i) => parseAx(i, nspace)) filter(!_.isEmpty) map(_.get)
+                nspace.zipWithIndex map((x,i) => parseAx(i, nspace, start + 1 + starts)) filter(!_.isEmpty) map(_.get)
+        LineTracker.registerLine("adt(" + name + ")", starts)
         new ADT(name, axs, HashSet[Operation]() ++ ops, new HashSet[String]() ++ sorts)
     
     //Parses one Operation in one line
-    def parseOP(line:String):Operation =
+    def parseOP(line:String, linenb:Int):Operation =
         val parts1 = line.split(":")
-        if(parts1.length != 2) throw new RuntimeException("illegal operation definition: " + line)
+        if(parts1.length != 2) throw new ParserException("illegal operation definition", linenb)
         val name = stripNameFromSeperators(parts1(0))
         val pars = parts1(1)
         val arrowpos = pars.indexOf("->")
-        if(arrowpos == -1 || line.length < arrowpos + 3) throw new RuntimeException("Every Operation needs a return type! In: " + line)
+        if(arrowpos == -1 || line.length < arrowpos + 3) throw new TypeException("Every Operation needs a return type!", linenb)
         val ret = stripNameFromSeperators(pars.substring(arrowpos + 2))
         val paramspace = pars.substring(0, arrowpos)
         
         val par = if paramspace.replaceAll(" ", "").replaceAll("\t", "").length > 0 then 
-            paramspace.split(" x ").map(stripNameFromSeperators)
-        else Array[String]()
+                paramspace.split(" x ").map(stripNameFromSeperators)
+                else Array[String]()
+        val nmbx = countMatches(paramspace, " x ")
+        if par.length != nmbx + 1 && !(par.length == 0 && nmbx == 0) then throw new ParserException("Unexpected number of Occurences of ' x ' in parameters ("+nmbx+" occurences, " +par.length + " parameters)!", linenb)
+        LineTracker.registerLine("ops(" + name + ")", linenb)
         new Operation(name, par, ret)
 
     //parses one Axiom in one line, but the axiom may consume multiple lines if it has a case statement in the right equation, in this case all the lines that are consumed by the axiom will yield None
-    def parseAx(index:Int, lines:Array[String]):Option[Axiom] = 
+    def parseAx(index:Int, lines:Array[String], starts:Int):Option[Axiom] = 
         val line = lines(index)
         if line == null || (withoutSeperators(line)).isEmpty then None //has already been consumed
         else
             val parts = splitAtFirst(line)('=')
-            if(parts.length != 2) throw new RuntimeException("An Axiom is always an equation with a left hand and right hand side sperated by a '='! " + line)
-            //TODO: detection if parts(1) starts an case statement, in that case collect all following lines that start with an | and parse those to an extra parse method
-            if withoutSeperators(parts(1)) startsWith("|") then
+            if(parts.length != 2) throw new ParserException("An Axiom is always an equation with a left hand and right hand side sperated by a '='! ", index + starts)
+            val axs = if withoutSeperators(parts(1)) startsWith("|") then
                 //yeay pain
                 val csl = lines.drop(index + 1).zipWithIndex takeWhile(l => 
                     withoutSeperators(l._1) startsWith("|")
                 )
                 csl foreach (l => lines(l._2 + index + 1) = null)
-                Some(new Axiom(parseEq(parts(0)), parseCaseEq(Array(parts(1)) ++ (csl map (_._1)))))
-            else Some(new Axiom(parseEq(parts(0)), parseEq(parts(1))))
+                new Axiom(parseEq(parts(0), index + starts), parseCaseEq(Array(parts(1)) ++ (csl map (_._1))))
+            else new Axiom(parseEq(parts(0), index + starts), parseEq(parts(1), index + starts))
+            axs.line = starts + index
+            Some(axs)
 
     //parses one Equation in one line
-    def parseEq(line:String):Equation =
+    def parseEq(line:String, linenb:Int = -1):Equation =
         //extracts only the operation for the outer most brackets and leaves the other ones as strings
         def splitFlatParamSpace(str:String):Array[String] = 
             val flr = str.foldLeft((0, List[String]("")))((acc, x) => 
                 (if x == '(' then acc._1 + 1 else if x == ')' then acc._1 - 1 else acc._1,
                  if x == ',' && acc._1 == 0 then "" :: acc._2 else (acc._2.head + x) :: acc._2.tail)    
             )
-            if flr._1 != 0 then throw new RuntimeException("mismatched brackets")
+            if flr._1 != 0 then throw new ParserException("mismatched brackets", linenb)
             else flr._2.reverse.toArray
 
         val opening = line.indexOf('(')
@@ -162,35 +171,35 @@ class AST(lines:Array[String]):
         if opening == -1 && closing == -1 then 
             AtomEq(stripNameFromSeperators(line))
         else if opening == -1 || closing == -1 then
-            throw new RuntimeException("mismatched brackets: " + line)
+            throw new ParserException("mismatched brackets" + line, linenb)
         else if closing == opening + 1 then
             AtomEq(stripNameFromSeperators(line.substring(0, opening)))
         else
             val paramspace = line.substring(opening + 1, closing)
             if !paramspace.contains(",") then
-                RecEq(stripNameFromSeperators(line.substring(0, opening)), Array(parseEq(paramspace)))
+                RecEq(stripNameFromSeperators(line.substring(0, opening)), Array(parseEq(paramspace, linenb)))
             else
-                RecEq(stripNameFromSeperators(line.substring(0, opening)), splitFlatParamSpace(paramspace).map(parseEq))
+                RecEq(stripNameFromSeperators(line.substring(0, opening)), splitFlatParamSpace(paramspace).map(pss => parseEq(pss, linenb)))
     
-    def parseCaseEq(lines:Array[String]):CaseEq =
+    def parseCaseEq(lines:Array[String], linenb:Int = -1):CaseEq =
         new CaseEq(lines.map (l => 
             val cIf = l.contains(" if ")
             val cEl = l.contains(" else")
-            if cIf && cEl then throw new RuntimeException("per case only one 'if' OR 'else' is allowed, not both!")
-            if !cIf && !cEl then throw new RuntimeException("per case one 'if' or 'else' is expected!")
+            if cIf && cEl then throw new ParserException("per case only one 'if' OR 'else' is allowed, not both!", linenb)
+            if !cIf && !cEl then throw new ParserException("per case one 'if' or 'else' is expected!", linenb)
             if cIf then
                 val ecP = l.split(" if ")
-                if ecP.length != 2 then throw new RuntimeException("Only one 'if' per case allowed!")
-                (parseEq(ecP(0).replaceFirst("\\|", "")), parseLogicTerm(ecP(1)))
+                if ecP.length != 2 then throw new ParserException("Only one 'if' per case allowed!", linenb)
+                (parseEq(ecP(0).replaceFirst("\\|", ""), linenb), parseLogicTerm(ecP(1), linenb))
             else
                 val ecP = l.replace("else", "").replaceFirst("\\|", "")
-                (parseEq(ecP), Condition.elseCond)
+                (parseEq(ecP, linenb), Condition.elseCond)
         ))
     //ands and ors, yes i love them
     //example (a | b | c) & d & (e | f) | g = Conjunction(Disjunction(a,b,c), d, Disjunction(e, f))
-    def parseLogicTerm(line:String):LogicTerm =
+    def parseLogicTerm(line:String, linenb:Int = -1):LogicTerm =
         if !line.contains("&") && !line.contains("|") then
-            Literal(parseCondition(line))
+            Literal(parseCondition(line, linenb))
         else
             def splitFlat(str:String)(c:Char) = str.foldLeft((List[String](""), 0))((curr, x) => 
                 if x == '(' then 
@@ -203,18 +212,19 @@ class AST(lines:Array[String]):
                 else ((x + curr._1.head) :: curr._1.tail, curr._2)
             )
             //first try to collect all the disjunctive terms
-            val disj = splitFlat(line)('|')._1
-            if disj.length == 1 then 
-                val conj = splitFlat(line)('&')._1
-                Conjunction(conj.reverse map(x => parseLogicTerm(x.reverse)))
-            else Disjunction(disj.reverse map(x => parseLogicTerm(x.reverse)))
+            val disj = splitFlat(line)('|')
+            if disj._2 != 0 then throw new ParserException("mismatched brackets!", linenb)
+            if disj._1.length == 1 then 
+                val conj = splitFlat(line)('&')
+                Conjunction(conj._1.reverse map(x => parseLogicTerm(x.reverse, linenb)))
+            else Disjunction(disj._1.reverse map(x => parseLogicTerm(x.reverse, linenb)))
 
-    def parseCondition(line:String):Condition = 
+    def parseCondition(line:String, linenb:Int = -1):Condition = 
         if line.contains("!=") then 
             val cP = line.split("!=")
-            if cP.length != 2 then throw new RuntimeException("Only exact one '=' or '!=' with one left and one right side per condition is allowed!")
-            new Condition(parseEq(cP(0)), false, parseEq(cP(1)))
+            if cP.length != 2 then throw new ParserException("Only exact one '=' or '!=' with one left and one right side per condition is allowed!", linenb)
+            new Condition(parseEq(cP(0), linenb), false, parseEq(cP(1), linenb))
         else
             val cP = line.split("=")
-            if cP.length != 2 then throw new RuntimeException("Only exact one '=' or '!=' with one left and one right side per condition is allowed!")
-            new Condition(parseEq(cP(0)), true, parseEq(cP(1)))
+            if cP.length != 2 then throw new ParserException("Only exact one '=' or '!=' with one left and one right side per condition is allowed!", linenb)
+            new Condition(parseEq(cP(0), linenb), true, parseEq(cP(1), linenb))

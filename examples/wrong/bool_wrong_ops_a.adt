@@ -5,11 +5,11 @@ ops
     false:                     -> Boolean
     not:   Boolean             -> Boolean
     and:   Boolean x Boolean x -> Boolean
-    or:    Boolean x Boolean   -> Boolean
+    or:    Boolean x Boolean x -> Boolean
 axs
     not(true) = false
     not(false) = true
-    and(true, x) = z
+    and(true, x) = x
     and(false,x) = false
     or(true, x) = true
     or(false, x) = x
