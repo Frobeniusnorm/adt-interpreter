@@ -70,7 +70,7 @@ Example for a partly redundant definition of an `xor` Axiom in the Boolean Type 
 ```
 ...
   xor(x, y) = | true if x = true & y = false | x = false & y = true
-              | false if x != y
+              | false else
 ...
 ```
 
