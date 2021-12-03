@@ -22,11 +22,13 @@ class ExamplesTest extends AnyFunSuite with Matchers:
     test("negatives"){
       forEvery(negatives){
           x =>
+            var didAnError = true
             try
               Parser.parseProgram(new AST(readFile(x.getPath)).program) shouldNot be (null)
-              fail("File \"" + x.getName + "\" was compiled correctly, although it contains errors!")
+              didAnError = false
             catch
-              case _ => println(x.getName + " passed")
+              case e => println(x.getName + " passed")
+            if(!didAnError) fail("File \"" + x.getName + "\" was compiled correctly, although it contains errors!")
       }
     }
     val results = new File("examples/withResults/").listFiles.groupBy(x => x.getName.split("\\.")(0))

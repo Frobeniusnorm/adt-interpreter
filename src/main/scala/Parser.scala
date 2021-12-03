@@ -41,6 +41,7 @@ object Parser:
                     , cs._2)))
                     case e => e
                 val leftvars = left.getVariables
+                //vars must match
                 right.getVariables foreach((v1, ae1) =>
                     if !leftvars.contains(v1) then
                         throw new RuntimeException("Unknown Variable \"" + v1 + "\" on right hand side of Axiom!")
@@ -60,7 +61,9 @@ object Parser:
                             case null => null
                             case AtomEq(name, _) => if leftvars.contains(name) then 
                                 AtomEq(name, leftvars(name).varType)
-                                else AtomEq(name, None)
+                                else if knownOps.contains(name) then
+                                    AtomEq(name, None)
+                                else throw new RuntimeException("Unknown literal \"" + name + "\" in case condition!")
                             case RecEq(name, parts) =>
                                 if !(knownOps contains name) then throw new RuntimeException("Could not find operation \"" + name + "\"!") 
                                 val op = knownOps(name)
@@ -81,6 +84,23 @@ object Parser:
                             case Disjunction(parts) => Disjunction(parts map completeTerms)
                         CaseEq(cases map(ce => (ce._1, completeTerms(ce._2))))
                     case diff => diff
+                //left and right term must have same type
+                val lefttype = left match
+                    case RecEq(name, _) => knownOps(name).ret
+                val righttype = 
+                    def getTypeOfBasic(e:Equation) = e match 
+                        case AtomEq(name, Some(t)) => t
+                        case AtomEq(name, _) => knownOps(name).ret
+                        case RecEq(name, _) => knownOps(name).ret
+                    right match
+                        case CaseEq(cases) => 
+                            val firsttype= getTypeOfBasic(cases(0)._1)
+                            if !cases.drop(1).forall(ce => getTypeOfBasic(ce._1) == firsttype) then
+                                throw new RuntimeException("All results of cases must have same Type!")
+                            firsttype
+                        case e:Equation => getTypeOfBasic(e)
+                if(lefttype != righttype)
+                    throw new RuntimeException("Type of left side (\"" + lefttype +"\") does not match type of right side (\"" + righttype +"\")! ")
                 new Axiom(left, fright)
             )
             new ADT(adt.name, axs, adt.ops, adt.sorts)
@@ -109,7 +129,3 @@ object Parser:
         //top level logic:
         prog.adts foreach (checkNames)
         new Program(prog.adts map checkAndUpdateTypes, prog.expr)
-                            
-            
-
-            
