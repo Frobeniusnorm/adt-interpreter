@@ -58,10 +58,27 @@ The ``axs``section provide reduction rules as equations. The left expression is 
 
 Before, inbetween and after the axiom definitions, single expressions are allowed which will be evaluated to its normal form by the interpreter and printed on the console.
 E.g. ``and(not(false), or(not(true), not(not(true))))`` will be evaluated to ``true``.
-Operator overloading is only allowed between types, not in types itself. This means two adts are allowed to define operators with the same name as long they don't sort each other. During evaluation the operation with the correct type will be choosen, if both are possible the one earlier defined is used.
+Operator overloading is only allowed between types, not in types itself. This means two adts are allowed to define operators with the same name as long they don't sort each other. During evaluation the operation with the correct type will be choosen, if both are possible the one earlier defined is used. Additionally case distinctions can be defined by this syntax on the right hand side of Axioms:
+```
+  <Expression> = | <Expression> if <Condition>
+                 | <Expression> if <Condition>
+                 |   ...
+                 | <Expression> else
+  
+  
+```
+An Condition may include conjunctions with the `&` operator, disjunctions with the `|` operator and comparisons of Equations (they will be evaluated as far as possible and variables will be replaced by their equations from the left hand side, they match if they yield the exact same term).
+The Condition may be else, which will always be fulfilled. The equation of the first matching condition will be chosen during the interpretation step.
+Example for a partly redundant definition of an `xor` Axiom in the Boolean Type from above:
+```
+...
+  xor(x, y) = | true if x = true & y = false | x = false & y = true
+              | false if x != y
+...
+```
 
 ## TODOs
- - if - cases as braces
+ - ~~if - cases as braces~~ (will be included in new release soon)
  - Type Overloading inside adts
  - Generic Types
  - More tests
