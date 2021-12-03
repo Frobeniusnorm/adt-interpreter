@@ -76,7 +76,7 @@ Example for a partly redundant definition of an `xor` Axiom in the Boolean Type 
 
 ## TODOs
  - ~~if - cases as braces~~ (will be included in new release soon)
- - Type Overloading inside adts
+ - Operation Overloading inside adts
  - Generic Types
  - More tests
  - Help command
