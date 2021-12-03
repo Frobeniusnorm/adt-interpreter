@@ -1,7 +1,6 @@
 # adt-interpreter
 ## Features
 Abstract Datatype (ADT) Parser, Type Checker and Interpreter. For language specification see below.
-Does NOT (yet) support operator overloading, though planned.
 Does NOT (yet) support generic types.
 Does support definition of multiple axioms per file and interpretation of 
 equations on top-level-scope. Those are allowed to access all operations of all Axioms
@@ -64,10 +63,8 @@ Operator overloading is only allowed between types, not in types itself. This me
                  | <Expression> if <Condition>
                  |   ...
                  | <Expression> else
-  
-  
 ```
-An Condition may include conjunctions with the `&` operator, disjunctions with the `|` operator and comparisons of Equations (they will be evaluated as far as possible and variables will be replaced by their equations from the left hand side, they match if they yield the exact same term).
+An Condition may include conjunctions with the `&` operator, disjunctions with the `|` operator and comparisons of Equations, which will be evaluated as far as possible and variables will be replaced by their equations from the left hand side, they match if the left hand side and the right hand side fulfill the comparison operator which can be either `=` for equality or `!=` for inequality. Its allowed to use brackets (terms in brackets will be evaluated first). The `&` operator binds stronger than the `|` operator, its only allowed to compare equations with equations.
 The Condition may be else, which will always be fulfilled. The equation of the first matching condition will be chosen during the interpretation step.
 Example for a partly redundant definition of an `xor` Axiom in the Boolean Type from above:
 ```
