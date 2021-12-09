@@ -14,28 +14,32 @@ def splitAtFirst(str:String)(sep:Char) =
     else if idx == 0 then Array(str.substring(1))
     else if idx == str.length - 1 then Array(str.substring(0, str.length - 1))
     else Array(str.substring(0, idx), str.substring(idx + 1, str.length))
+
 def countMatches(str:String, pattern:String) = 
     (str.length() - str.replace(pattern, "").length) / pattern.length
+
 abstract class Node
 case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
 
 case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:HashSet[String]) extends Node
 
-case class Operation(name:String, par:Array[String], ret:String) extends Node
+case class Operation(name:String, par:Array[String], ret:String) extends Node:
+    var orig_adt:String = "" //for namespaces: safes which adt it belongs to
 
 abstract class Equation(val operation:String):
     def getVariables : HashMap[String, AtomEq]
 
-case class AtomEq(op:String, varType:Option[String] = None) extends Equation(op):
+case class AtomEq(op:String, varType:Option[String] = None, namespace : Option[String] = None) extends Equation(op):
     def makeTypedVar(typ:String) = AtomEq(operation, Some(typ))
+    var ref_op: Option[Operation] = None //for namespaces from Parser
     override def getVariables : HashMap[String, AtomEq] = if varType.isEmpty then HashMap.empty[String, AtomEq] else HashMap((op, this))
     override def toString() = 
         if varType.isEmpty then 
             "\u001b[32m" + operation + "\u001b[0m"
         else "\u001b[36m" + operation + "\u001b[0m"
 
-case class RecEq(op:String, params:Array[Equation]) extends Equation(op):
-    var ref_op : Option[Operation] = None //reference operation, needed for operation overloading
+case class RecEq(op:String, params:Array[Equation], namespace : Option[String] = None) extends Equation(op):
+    var ref_op : Option[Operation] = None //reference operation, needed for operation overloading and namespaces
     override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
     override def toString() = "\u001b[35m" + operation + "\u001b[0m(" + 
         params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
@@ -108,6 +112,7 @@ class AST(lines:Array[String]):
             val start = opslines(0)._2
             val term = lines.zipWithIndex.filter((x, i) => ((i == lines.length -1) || x.startsWith("axs")) && i > start).map(_._2).min
             lines.slice(start + 1, term).zipWithIndex.filter(l => !withoutSeperators(l._1).isEmpty).map(l => parseOP(l._1, l._2 + start + 1 + starts))
+        ops foreach(op => op.orig_adt = name)
         val axs = 
             val axslines = lines.zipWithIndex.filter((x, i) => x.startsWith("axs"))
             if axslines.length == 0 then Array[Axiom]()
@@ -167,21 +172,32 @@ class AST(lines:Array[String]):
             )
             if flr._1 != 0 then throw new ParserException("mismatched brackets", linenb)
             else flr._2.reverse.toArray
+        def nameAndNamespace(name:String):(String, Option[String]) =
+            val res = stripNameFromSeperators(name)
+            if res.contains(".") then
+                val parts = res.split("\\.")
+                if parts.length != 2 then
+                    throw new ParserException("Invalid namespace decleration (\"" + name + "\")!", linenb)
+                (parts(1), Some(parts(0)))
+            else (res, None)
 
         val opening = line.indexOf('(')
         val closing = line.lastIndexOf(')')
         if opening == -1 && closing == -1 then 
-            AtomEq(stripNameFromSeperators(line))
+            val (identifier, namespace) = nameAndNamespace(line)
+            AtomEq(identifier, None, namespace)
         else if opening == -1 || closing == -1 then
             throw new ParserException("mismatched brackets" + line, linenb)
         else if closing == opening + 1 then
-            AtomEq(stripNameFromSeperators(line.substring(0, opening)))
+            val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
+            AtomEq(identifier, None, namespace)
         else
             val paramspace = line.substring(opening + 1, closing)
+            val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
             if !paramspace.contains(",") then
-                RecEq(stripNameFromSeperators(line.substring(0, opening)), Array(parseEq(paramspace, linenb)))
+                RecEq(identifier, Array(parseEq(paramspace, linenb)), namespace)
             else
-                RecEq(stripNameFromSeperators(line.substring(0, opening)), splitFlatParamSpace(paramspace).map(pss => parseEq(pss, linenb)))
+                RecEq(identifier, splitFlatParamSpace(paramspace).map(pss => parseEq(pss, linenb)), namespace)
     
     def parseCaseEq(lines:Array[String], linenb:Int = -1):CaseEq =
         new CaseEq(lines.map (l => 

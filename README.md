@@ -77,7 +77,8 @@ It's possible to overload operations (define multiple operations with the same n
 
 ## TODOs
  - ~~if - cases as braces~~ (will be included in new release soon)
- - Operation Overloading inside adts
+ - ~~Operation Overloading inside adts~~ (will be included in new release soon)
+ - Namespace Declerations
  - Generic Types
  - More tests
  - Help command

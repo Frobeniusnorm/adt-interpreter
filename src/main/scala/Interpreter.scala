@@ -64,35 +64,36 @@ class Interpreter(prog:Program):
      */ 
     def matches(ax:Equation, e:Equation):Boolean = 
         ax match 
-            case AtomEq(_, Some(t)) => e match
-                case AtomEq(_, Some(et)) => et == t
-                case AtomEq(op, None) => 
-                    avOps(op) exists (_.ret == t)
+            case AtomEq(_, Some(t), _) => e match
+                case AtomEq(_, Some(et), _) => et == t
+                case AtomEq(op, None, ns) => 
+                    (if ns.isEmpty then avOps(op) else avOps(op) filter (_.orig_adt == ns.get)) exists (_.ret == t)
                 case re:RecEq => //does not work because the equation wasn't typed, only the axiom
                     re.ref_op.get.ret == t
-            case AtomEq(op, None) => e match
-                case AtomEq(v, Some(t)) => true
-                case AtomEq(ep, None) => op == ep
+            case AtomEq(op, None, _) => e match
+                case AtomEq(v, Some(t), _) => true
+                case AtomEq(ep, None, _) => op == ep
                 case _ => false
-            case RecEq(op, opar) => e match
-                case RecEq(ep, epar) =>
+            case RecEq(op, opar, _) => e match
+                case RecEq(ep, epar, _) =>
                     op == ep && ((opar zip epar) forall ((a, b) => matches(a, b)))
                 case _ => false //no case matching needed here
     /**
      * Maps the Variables in @param ax to the expressions in @param e
      */ 
     def fillVariables(e:Equation, ax:Equation) : HashMap[String, Equation] = ax match
-        case AtomEq(name, Some(_)) => HashMap(name -> e)
-        case AtomEq(op, None) => HashMap.empty[String, Equation]
-        case RecEq(op, pars) => e match
-            case RecEq(ep, epar) => (epar zip pars).foldLeft(HashMap.empty[String, Equation]) ((acc, x) =>
+        case AtomEq(name, Some(_), _) => 
+            HashMap(name -> e)
+        case AtomEq(op, None, _) => HashMap.empty[String, Equation]
+        case RecEq(op, pars, _) => e match
+            case RecEq(ep, epar, _) => (epar zip pars).foldLeft(HashMap.empty[String, Equation]) ((acc, x) =>
                 acc ++ fillVariables(x._1, x._2))
 
     def applyAxiom(e:Equation, ax:Axiom) : Equation = 
         val vars = fillVariables(e, ax.left)
         def visitEquationsAndReplace(a:Equation) : Equation = a match
-            case AtomEq(name, Some(_)) => vars(name)
-            case AtomEq(name, None) => a
+            case AtomEq(name, Some(_), _) => vars(name)
+            case AtomEq(name, None, _) => a
             case re:RecEq => 
                 val foo = RecEq(re.op, re.params map visitEquationsAndReplace)
                 foo.ref_op = re.ref_op
@@ -100,15 +101,16 @@ class Interpreter(prog:Program):
             case CaseEq(parts) =>
                 val res = parts find(x => isLogicTerm(vars)(x._2))
                 if res.isEmpty then throw new RuntimeException("Could not find fulfilling case predicate!")
-                res.get._1
+                //res could be a single variable
+                visitEquationsAndReplace(res.get._1)
             //Here evaluate CondEq with its logic terms etc.
         visitEquationsAndReplace(ax.right)
 
     def isLogicTerm(vars:(HashMap[String, Equation]))(lt:LogicTerm):Boolean = 
         def rek = isLogicTerm(vars)
         def insertVars(e:Equation):Equation = e match
-            case AtomEq(name, Some(_)) => vars(name)
-            case AtomEq(name, None) => e
+            case AtomEq(name, Some(_),_ ) => vars(name)
+            case AtomEq(name, None, _) => e
             case re:RecEq => 
                 val foo = RecEq(re.op, re.params map insertVars)
                 foo.ref_op = re.ref_op

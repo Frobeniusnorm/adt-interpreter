@@ -1,0 +1,28 @@
+adt test1
+sorts test1
+ops
+    c1 : -> test1
+    c2 : -> test1
+    c3 : -> test1
+    combine : test1 x test1 -> test1
+axs
+    combine(x, y) = | c1 if x = y & x = c3
+                    | c2 if x = y & x = c1
+                    | c3 if x = y & x = c2
+                    | x  else
+end
+adt test2
+sorts test2
+ops
+    c1 : -> test2
+    c2 : -> test2
+    c3 : -> test2
+    combine : test2 x test2 -> test2
+axs
+    combine(x, y) = | c1 if x = y & x = c3
+                    | c2 if x = y & x = c1
+                    | c3 if x = y & x = c2
+                    | x  else
+end
+
+test2.combine(test2.c2, test1.combine(test1.c1, test1.c2))
