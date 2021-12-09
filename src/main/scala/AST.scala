@@ -35,8 +35,10 @@ case class AtomEq(op:String, varType:Option[String] = None) extends Equation(op)
         else "\u001b[36m" + operation + "\u001b[0m"
 
 case class RecEq(op:String, params:Array[Equation]) extends Equation(op):
+    var ref_op : Option[Operation] = None //reference operation, needed for operation overloading
     override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
-    override def toString() = "\u001b[35m" + operation + "\u001b[0m(" + params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
+    override def toString() = "\u001b[35m" + operation + "\u001b[0m(" + 
+        params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
 //Conditional Equation
 case class Condition(left:Equation, equals:Boolean, right:Equation):
     def getVariables = if left == null || right == null then 

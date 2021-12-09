@@ -13,11 +13,11 @@ class Interpreter(prog:Program):
      * Collects and Hashes all operations and Axioms
      */ 
     def typeAndCollectAxioms(prog:Program) =
-        val avOps = HashMap.from(prog.adts.foldLeft(HashSet.empty[Operation])((o, adt) => 
-                        o ++ adt.ops) map (op => op.name -> op))
+        val avOps = HashMap.from(prog.adts.foldLeft(List.empty[Operation])((o, adt) => 
+                        o ++ adt.ops).toArray groupBy(op => op.name))
         //Hash Axioms by their first operation on left hand Side for faster pattern matching
         val avAxs = HashMap.from(prog.adts flatMap(adt => 
-            adt.axs groupBy (axs => axs.left.operation)))
+            adt.axs) groupBy (axs => axs.left.operation))
         (avOps, avAxs)
     /**
      * Applies applyMatching as long as it matches something
@@ -54,7 +54,9 @@ class Interpreter(prog:Program):
                     else 
                         val np = Array.from(x.params)
                         np(i) = found.get
-                        Some(new RecEq(x.op, np))
+                        val rer = new RecEq(x.op, np)
+                        rer.ref_op = x.ref_op
+                        Some(rer)
     //TODO: fill and match type variables
     //to do that create HashTable for Type variables just as for normal variables one step further
     /**
@@ -64,8 +66,10 @@ class Interpreter(prog:Program):
         ax match 
             case AtomEq(_, Some(t)) => e match
                 case AtomEq(_, Some(et)) => et == t
-                case AtomEq(op, None) => avOps(op).ret == t
-                case RecEq(op, _) => avOps(op).ret == t
+                case AtomEq(op, None) => 
+                    avOps(op) exists (_.ret == t)
+                case re:RecEq => //does not work because the equation wasn't typed, only the axiom
+                    re.ref_op.get.ret == t
             case AtomEq(op, None) => e match
                 case AtomEq(v, Some(t)) => true
                 case AtomEq(ep, None) => op == ep
@@ -89,20 +93,26 @@ class Interpreter(prog:Program):
         def visitEquationsAndReplace(a:Equation) : Equation = a match
             case AtomEq(name, Some(_)) => vars(name)
             case AtomEq(name, None) => a
-            case RecEq(name, pars) => RecEq(name, pars map visitEquationsAndReplace)
+            case re:RecEq => 
+                val foo = RecEq(re.op, re.params map visitEquationsAndReplace)
+                foo.ref_op = re.ref_op
+                foo
             case CaseEq(parts) =>
                 val res = parts find(x => isLogicTerm(vars)(x._2))
                 if res.isEmpty then throw new RuntimeException("Could not find fulfilling case predicate!")
                 res.get._1
             //Here evaluate CondEq with its logic terms etc.
         visitEquationsAndReplace(ax.right)
-    //TODO: variablen ersetzen
+
     def isLogicTerm(vars:(HashMap[String, Equation]))(lt:LogicTerm):Boolean = 
         def rek = isLogicTerm(vars)
         def insertVars(e:Equation):Equation = e match
             case AtomEq(name, Some(_)) => vars(name)
             case AtomEq(name, None) => e
-            case RecEq(name, pars) => RecEq(name, pars map insertVars)
+            case re:RecEq => 
+                val foo = RecEq(re.op, re.params map insertVars)
+                foo.ref_op = re.ref_op
+                foo
             case _ => throw new RuntimeException("Illegal equation type in logic term: " + e)
         lt match
             case Literal(Condition(x, e, y)) => 

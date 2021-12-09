@@ -15,7 +15,7 @@ class ExamplesTest extends AnyFunSuite with Matchers:
             Parser.parseProgram(new AST(readFile(x.getPath)).program) shouldNot be (null)
             println(x.getName + " passed")
           catch
-            case e => fail("File \"" + x.getName + "\" was not compiled correctly! " + e.getMessage + " in " + e.getStackTrace.foldLeft("")((o, a) => o + "\n" + a.toString))
+            case e => fail("File \"" + x.getName + "\" was not compiled correctly! " + e.getClass + ": " + e.getMessage + " in " + e.getStackTrace.foldLeft("")((o, a) => o + "\n" + a.toString))
       }
     }
     val negatives = new File("examples/wrong/").listFiles

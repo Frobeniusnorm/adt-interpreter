@@ -1,0 +1,3 @@
+succ(Zero)
+vec3(succ(Zero), succ(Zero), succ(Zero))
+vec3(succ(succ(Zero)), succ(succ(Zero)), succ(succ(Zero)))
