@@ -8,8 +8,8 @@ def readFile:String => Array[String] = name => Source.fromFile(name).getLines.to
 test2.combine(test1.c2, test2.c2)
 test1.combine(test1.c1, test2.c3)
 */
-@main
-def test() = main("examples/correct/namespaces.adt")
+/* @main
+def test() = main("examples/correct/namespaces.adt") */
 
 @main
 def main(file:String) =
