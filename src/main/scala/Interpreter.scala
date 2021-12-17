@@ -30,7 +30,7 @@ class Interpreter(prog:Program):
             m = applyMatching(x)
         x
     /**
-     * Trys to find an matching axiom, if found applys it, else
+     * Trys to find an matching axiom, if found applies it, else
      * tries to match one of the parameter equations if the equation itself is a recursive equation.
      * @return None if no axiom could be matched on the Equation, else Some(e) with e being the transformed equation
      */
