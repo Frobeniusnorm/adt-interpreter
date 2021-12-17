@@ -44,7 +44,7 @@ class Interpreter(prog:Program):
                 else
                     var found:Option[Equation] = None
                     var i = 0
-                    while i < x.params.length && found.isEmpty do //sorry Curry and Howard and Holy Monad in heaven, forgive me my imperial sins
+                    while i < x.params.length && found.isEmpty do //sorry Curry and Howard and Holy Monad in heaven, forgive me my imperative sins
                         val rek = applyMatching(x.params(i))
                         if !rek.isEmpty then
                             found = rek
