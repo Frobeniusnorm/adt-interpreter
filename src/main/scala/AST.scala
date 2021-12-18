@@ -71,10 +71,10 @@ case class CaseEq(cases : Array[(Equation, LogicTerm)]) extends Equation(""):
     override def getVariables : HashMap[String, AtomEq] = cases.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e._1.getVariables)
 
 case class Axiom(left:Equation, right:Equation) extends Node:
-    var line:Int = -1
     override def toString() = left.toString + "\u001b[33m =\u001b[0m " + right.toString
 
 class AST(lines:Array[String]):
+    LineTracker.clean()
     val program = parse(lines)
     //selects and groups the lines into adt groups, selects all other lines as to be evaluated expressions and parsed both
     def parse(lines:Array[String]):Program =
@@ -100,6 +100,8 @@ class AST(lines:Array[String]):
                   parts(1)  
                 else throw new ParserException("Illegal adt name: " + lines(0), starts)
             else throw new ParserException("Empty ADTs are not allowed", starts)
+        if LineTracker.containsKey("adt(" + name + ")") then 
+            throw new ParserException(s"adt \"${name}\" was declared multiple times", starts)
         val sorts = 
             val sortlines_wi = lines.zipWithIndex.filter(_._1.startsWith("sorts "))
             val sortlines = sortlines_wi map (_._1)
@@ -115,6 +117,7 @@ class AST(lines:Array[String]):
             if(opslines.length > 1) throw new ParserException("Only one operations part is allowed per datatype!", opslines(1)._2 + starts)
             if(opslines(0)._1.length != 3) throw new ParserException("Illegal characters after ops: " + opslines(0)._1, opslines(0)._2)
             val start = opslines(0)._2
+            LineTracker.registerLine("ops(" + name + ")", start)
             val sortsline = LineTracker.getLine("sorts(" + name + ")")
             if starts + start < sortsline then throw new ParserException("operations part must be declared AFTER sorts part", starts + start)
             val term_cand = lines.zipWithIndex.filter((x, i) => x.startsWith("axs")).map(_._2)
@@ -122,6 +125,7 @@ class AST(lines:Array[String]):
             if term < start then 
                 throw new ParserException("axiom part must be declared AFTER operations part", term + starts)
             lines.slice(start + 1, term).zipWithIndex.filter(l => !withoutSeperators(l._1).isEmpty).map(l => parseOP(l._1, l._2 + start + 1 + starts))
+            
         ops foreach(op => op.orig_adt = name)
         val axs = 
             val axslines = lines.zipWithIndex.filter((x, i) => x.startsWith("axs"))
@@ -130,8 +134,10 @@ class AST(lines:Array[String]):
                 if(axslines.length > 1) throw new ParserException("Only one axiom part is allowed per datatype!", axslines(1)._2 + starts)
                 if(axslines(0)._1.length != 3) throw new ParserException("Illegal characters after axs: " + axslines(0)._1, axslines(0)._2 + starts)
                 val start = axslines(0)._2
+                LineTracker.registerLine("axs(" + name + ")", start)
                 val nspace = lines.slice(start + 1, lines.length)
                 nspace.zipWithIndex map((x,i) => parseAx(i, nspace, start + 1 + starts)) filter(!_.isEmpty) map(_.get)
+
         LineTracker.registerLine("adt(" + name + ")", starts)
         new ADT(name, axs, HashSet[Operation]() ++ ops, new HashSet[String]() ++ sorts)
     
@@ -151,7 +157,7 @@ class AST(lines:Array[String]):
                 else Array[String]()
         val nmbx = countMatches(paramspace, " x ")
         if par.length != nmbx + 1 && !(par.length == 0 && nmbx == 0) then throw new ParserException("Unexpected number of Occurences of ' x ' in parameters ("+nmbx+" occurences, " +par.length + " parameters)!", linenb)
-        LineTracker.registerLine("ops(" + name + ")", linenb)
+        
         new Operation(name, par, ret)
 
     //parses one Axiom in one line, but the axiom may consume multiple lines if it has a case statement in the right equation, in this case all the lines that are consumed by the axiom will yield None
@@ -169,7 +175,6 @@ class AST(lines:Array[String]):
                 csl foreach (l => lines(l._2 + index + 1) = null)
                 new Axiom(parseEq(parts(0), index + starts), parseCaseEq(Array(parts(1)) ++ (csl map (_._1))))
             else new Axiom(parseEq(parts(0), index + starts), parseEq(parts(1), index + starts))
-            axs.line = starts + index
             Some(axs)
 
     //parses one Equation in one line

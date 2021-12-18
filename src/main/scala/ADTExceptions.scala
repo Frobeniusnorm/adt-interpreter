@@ -1,6 +1,6 @@
 import scala.collection.mutable.HashMap
 class CompilerException(msg:String, line:Int) extends RuntimeException(msg):
-    override def getMessage() = (if line >= 0 then "[In line: " + (line + 1) + "] " else "") + msg
+    override def getMessage() = (if line >= 0 then "[In (section declared in) line: " + (line + 1) + "] " else "") + msg
     
 class ParserException(msg:String, line:Int = -1) extends CompilerException(msg, line)
 class TypeException(msg:String, line:Int = -1) extends CompilerException(msg, line)
@@ -11,3 +11,5 @@ object LineTracker:
     def registerLine(key:String, line:Int) = 
         lineTable += ((key, line))
     def getLine(key:String) = lineTable(key)
+    def containsKey(key:String) = lineTable.contains(key)
+    def clean() = lineTable.clear
