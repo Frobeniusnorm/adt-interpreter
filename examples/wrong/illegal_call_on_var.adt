@@ -1,0 +1,11 @@
+adt X
+sorts X
+ops
+    d: -> X
+    a: -> X
+    b: X x X -> X
+axs
+    b(e, f()) = f
+end
+
+b(d, a())

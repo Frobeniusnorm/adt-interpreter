@@ -32,6 +32,11 @@ abstract class Equation(val operation:String):
 case class AtomEq(op:String, varType:Option[String] = None, namespace : Option[String] = None) extends Equation(op):
     def makeTypedVar(typ:String) = AtomEq(operation, Some(typ))
     var ref_op: Option[Operation] = None //for namespaces from Parser
+    private var allowed_var = true
+    def onlyAsOperation() = 
+        allowed_var = false
+        this
+    def allowedAsVar() = allowed_var
     override def getVariables : HashMap[String, AtomEq] = if varType.isEmpty then HashMap.empty[String, AtomEq] else HashMap((op, this))
     override def toString() = 
         if varType.isEmpty then 
@@ -110,7 +115,12 @@ class AST(lines:Array[String]):
             if(opslines.length > 1) throw new ParserException("Only one operations part is allowed per datatype!", opslines(1)._2 + starts)
             if(opslines(0)._1.length != 3) throw new ParserException("Illegal characters after ops: " + opslines(0)._1, opslines(0)._2)
             val start = opslines(0)._2
-            val term = lines.zipWithIndex.filter((x, i) => ((i == lines.length -1) || x.startsWith("axs")) && i > start).map(_._2).min
+            val sortsline = LineTracker.getLine("sorts(" + name + ")")
+            if starts + start < sortsline then throw new ParserException("operations part must be declared AFTER sorts part", starts + start)
+            val term_cand = lines.zipWithIndex.filter((x, i) => x.startsWith("axs")).map(_._2)
+            val term = if term_cand.length >= 1 then term_cand(0) else lines.length
+            if term < start then 
+                throw new ParserException("axiom part must be declared AFTER operations part", term + starts)
             lines.slice(start + 1, term).zipWithIndex.filter(l => !withoutSeperators(l._1).isEmpty).map(l => parseOP(l._1, l._2 + start + 1 + starts))
         ops foreach(op => op.orig_adt = name)
         val axs = 
@@ -128,7 +138,7 @@ class AST(lines:Array[String]):
     //Parses one Operation in one line
     def parseOP(line:String, linenb:Int):Operation =
         val parts1 = line.split(":")
-        if(parts1.length != 2) throw new ParserException("illegal operation definition", linenb)
+        if(parts1.length != 2) throw new ParserException(s"illegal operation definition: \"${line}\"", linenb)
         val name = stripNameFromSeperators(parts1(0))
         val pars = parts1(1)
         val arrowpos = pars.indexOf("->")
@@ -190,7 +200,7 @@ class AST(lines:Array[String]):
             throw new ParserException("mismatched brackets" + line, linenb)
         else if closing == opening + 1 then
             val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
-            AtomEq(identifier, None, namespace)
+            AtomEq(identifier, None, namespace).onlyAsOperation()
         else
             val paramspace = line.substring(opening + 1, closing)
             val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))

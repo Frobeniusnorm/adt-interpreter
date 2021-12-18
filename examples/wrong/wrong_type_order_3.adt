@@ -1,0 +1,15 @@
+adt X
+sorts X
+ops
+    a: -> X
+    d: -> X
+axs
+end
+
+adt Y
+sorts X, Y
+ops
+	c: X x Y -> Y
+axs
+	c(a(), c(a(), d())) = d()
+end

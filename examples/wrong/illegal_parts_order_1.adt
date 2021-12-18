@@ -1,0 +1,5 @@
+adt test1
+ops
+    op1: -> test1
+sorts test1
+end

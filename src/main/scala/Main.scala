@@ -4,12 +4,9 @@ def printHelp: Unit =
   println("help")
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
-/*
-test2.combine(test1.c2, test2.c2)
-test1.combine(test1.c1, test2.c3)
-*/
-/* @main
-def test() = main("examples/correct/namespaces.adt") */
+
+@main
+def test() = main("examples/wrong/illegal_call_on_var.adt") 
 
 @main
 def main(file:String) =

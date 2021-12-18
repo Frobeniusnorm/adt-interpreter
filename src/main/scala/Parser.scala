@@ -117,7 +117,10 @@ object Parser:
         def checkAndUpdateEquationType(ops:HashMap[String, Array[Operation]])
                 (eq:Equation, alreadydefvars:HashMap[String, AtomEq] = HashMap.empty[String, AtomEq]) : Equation = 
             eq match
-                case AtomEq(name, _, ns) => if ops.contains(name) then AtomEq(name, None, ns) else AtomEq(name, Some(""), ns)
+                case AtomEq(name, _, ns) => if ops.contains(name) then AtomEq(name, None, ns) else 
+                        if !(eq.asInstanceOf[AtomEq]).allowedAsVar() then 
+                            throw new ParserException(s"The identifier \"${name}()\" cannot be used as a variable")
+                        AtomEq(name, Some(""), ns)
                 case RecEq(name, e:Array[Equation], ns) =>
                     if !(ops contains name) then throw new RuntimeException("Unknown Operation \"" + name + "\"")
                     val op_cand = ops(name)

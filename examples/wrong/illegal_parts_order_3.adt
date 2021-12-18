@@ -1,0 +1,8 @@
+end
+sorts test1, test2
+axs
+    op4(a, b) = op1
+ops
+    op3: -> test2
+    op4: test2 x test2 -> test1
+adt test2
