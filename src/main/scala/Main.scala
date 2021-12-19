@@ -5,10 +5,10 @@ def printHelp: Unit =
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 
-@main
+/* @main
 def test() = main("examples/correct/generics_3.adt") 
 
-@main
+ */@main
 def main(file:String) =
   val ast = new AST(readFile(file))
   val np = Parser.parseProgram(ast.program)

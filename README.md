@@ -77,7 +77,6 @@ It's possible to overload operations (define multiple operations with the same n
 to differentiate operations with the same name with the syntax `<ADT Name>.<Operation Name>`.
 
 ## TODOs
- - Generic Types
  - More tests
  - Help command
  - interactive mode after reading adt definition with command line option
