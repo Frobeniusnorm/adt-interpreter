@@ -1,0 +1,24 @@
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+    false:                     -> Boolean
+end
+adt List
+sorts List, T
+ops
+    Nil: -> List
+    cons: T x List -> List
+end
+adt Pair
+sorts Pair, A, B
+ops
+    Pair: A x B -> Pair
+    fst: Pair -> A
+    snd: Pair -> B
+axs
+    fst(Pair(x,y)) = y
+    snd(Pair(x,y)) = x
+end
+
+fst(Pair(true, Nil))

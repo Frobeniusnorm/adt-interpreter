@@ -18,19 +18,22 @@ def splitAtFirst(str:String)(sep:Char) =
 def countMatches(str:String, pattern:String) = 
     (str.length() - str.replace(pattern, "").length) / pattern.length
 
+case class Type(tp:String, isGeneric:Boolean = false):
+    override def toString:String = tp
 abstract class Node
 case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
 
-case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:HashSet[String]) extends Node
+case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:HashSet[String]) extends Node:
+    var typeVars:HashSet[String] = HashSet.empty[String]
 
-case class Operation(name:String, par:Array[String], ret:String) extends Node:
+case class Operation(name:String, var par:Array[Type], var ret:Type) extends Node:
     var orig_adt:String = "" //for namespaces: safes which adt it belongs to
 
 abstract class Equation(val operation:String):
     def getVariables : HashMap[String, AtomEq]
 
-case class AtomEq(op:String, varType:Option[String] = None, namespace : Option[String] = None) extends Equation(op):
-    def makeTypedVar(typ:String) = AtomEq(operation, Some(typ))
+case class AtomEq(op:String, var varType:Option[Type] = None, namespace : Option[String] = None) extends Equation(op):
+    def makeTypedVar(typ:String) = AtomEq(operation, Some(new Type(typ)))
     var ref_op: Option[Operation] = None //for namespaces from Parser
     private var allowed_var = true
     def onlyAsOperation() = 
@@ -149,12 +152,12 @@ class AST(lines:Array[String]):
         val pars = parts1(1)
         val arrowpos = pars.indexOf("->")
         if(arrowpos == -1 || line.length < arrowpos + 3) throw new TypeException("Every Operation needs a return type!", linenb)
-        val ret = stripNameFromSeperators(pars.substring(arrowpos + 2))
+        val ret = new Type(stripNameFromSeperators(pars.substring(arrowpos + 2)))
         val paramspace = pars.substring(0, arrowpos)
         
         val par = if paramspace.replaceAll(" ", "").replaceAll("\t", "").length > 0 then 
-                paramspace.split(" x ").map(stripNameFromSeperators)
-                else Array[String]()
+                paramspace.split(" x ").map(x => new Type(stripNameFromSeperators(x)))
+                else Array[Type]()
         val nmbx = countMatches(paramspace, " x ")
         if par.length != nmbx + 1 && !(par.length == 0 && nmbx == 0) then throw new ParserException("Unexpected number of Occurences of ' x ' in parameters ("+nmbx+" occurences, " +par.length + " parameters)!", linenb)
         

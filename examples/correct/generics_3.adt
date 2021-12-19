@@ -1,0 +1,23 @@
+adt test
+sorts test, A, B
+ops
+    c1: -> test
+    c2: -> test
+    combine: test x A -> A
+    combine: test x B x B -> B
+axs
+    combine(t1, b) = b
+    combine(t, a, b) = | a if t = c1
+                       | b else
+end
+
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+    false:                     -> Boolean
+end
+
+combine(c1, false)
+combine(c2, true, false)
+combine(c1, true, false)

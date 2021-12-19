@@ -57,26 +57,24 @@ class Interpreter(prog:Program):
                         val rer = new RecEq(x.op, np)
                         rer.ref_op = x.ref_op
                         Some(rer)
-    //TODO: fill and match type variables
-    //to do that create HashTable for Type variables just as for normal variables one step further
     /**
      * Checks if @param e matches @param ax, ax is usually the left hand side of an axiom
      */ 
     def matches(ax:Equation, e:Equation):Boolean = 
         ax match 
-            case AtomEq(_, Some(t), _) => e match
-                case AtomEq(_, Some(et), _) => et == t
+            case AtomEq(_, Some(t), _) => t.isGeneric || (e match
+                case AtomEq(_, Some(et), _) => t == et
                 case AtomEq(op, None, ns) => 
                     (if ns.isEmpty then avOps(op) else avOps(op) filter (_.orig_adt == ns.get)) exists (_.ret == t)
                 case re:RecEq => //does not work because the equation wasn't typed, only the axiom
-                    re.ref_op.get.ret == t
+                    re.ref_op.get.ret == t)
             case AtomEq(op, None, _) => e match
                 case AtomEq(v, Some(t), _) => true
                 case AtomEq(ep, None, _) => op == ep
                 case _ => false
             case RecEq(op, opar, _) => e match
                 case RecEq(ep, epar, _) =>
-                    op == ep && ((opar zip epar) forall ((a, b) => matches(a, b)))
+                    op == ep && opar.length == epar.length && ((opar zip epar) forall ((a, b) => matches(a, b)))
                 case _ => false //no case matching needed here
     /**
      * Maps the Variables in @param ax to the expressions in @param e

@@ -1,0 +1,11 @@
+adt test
+sorts test, A, B
+ops
+    c1: -> test
+    c2: -> test
+    transformA: test -> A
+    createA: -> A
+axs
+    transformA(c1) = createA
+    transformA(c2) = createA
+end

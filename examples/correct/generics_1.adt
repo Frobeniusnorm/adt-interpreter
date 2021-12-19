@@ -1,0 +1,26 @@
+
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+    false:                     -> Boolean
+    not:   Boolean             -> Boolean
+axs
+    not(true) = false
+    not(false) = true
+end
+
+adt List
+sorts List, T
+ops
+    Nil: -> List
+    cons: T x List -> List
+    concat: List x List -> List
+    head: List -> T
+axs
+    head(cons(x, l)) = x
+    concat(x, Nil) = Nil
+    concat(cons(x, a), b) = cons(x, concat(a,b))
+end
+
+head(concat(cons(false, cons(false, Nil)), cons(false, cons(true, Nil))))

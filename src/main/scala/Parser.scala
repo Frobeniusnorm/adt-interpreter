@@ -5,18 +5,23 @@ object Parser:
     var currentLine = -1
     def parseProgram(prog:Program):Program = 
         val namespaces:HashMap[String, HashSet[Operation]] = HashMap.from(prog.adts map(x => x.name -> x.ops))
+        val adts = HashMap.from(prog.adts map(x => x.name -> x))
         //helper functions:
         /**
          * Checks if all used types appear in sorts
          */ 
         def checkNames(adt:ADT) = 
-            //TODO all types that are not contained in namespaces -> local generics that may be used
+            //all types that are not contained in namespaces -> local generics that may be used
             val knownTypes = HashSet.from(namespaces filter(x => adt.sorts contains(x._1)) map(x => x._1))
+            val typeVars = adt.sorts filter (!knownTypes.contains(_))
             //check operation names        
             for op <- adt.ops do
                 for t <- op.par :+ op.ret do
-                    if !(knownTypes contains t) then 
+                    if !(knownTypes contains (t.tp)) && !(typeVars contains (t.tp)) then 
                         throw new TypeException("Unknown Type \"" + t + "\" in ops of \"" + adt.name + "\"", LineTracker.getLine(s"ops(${adt.name})"))
+                op.par = op.par map(par => if typeVars contains (par.tp) then Type(par.tp, true) else par)
+                op.ret = if typeVars contains (op.ret.tp) then Type(op.ret.tp, true) else op.ret
+            adt.typeVars = HashSet.from(typeVars)
         
         /**
          * Checks types of all axioms of an adt and sets the variable types
@@ -123,13 +128,14 @@ object Parser:
                 case AtomEq(name, _, ns) => if ops.contains(name) then AtomEq(name, None, ns) else 
                         if !(eq.asInstanceOf[AtomEq]).allowedAsVar() then 
                             throw new ParserException(s"The identifier \"${name}()\" cannot be used as a variable", currentLine)
-                        AtomEq(name, Some(""), ns)
+                        AtomEq(name, Some(Type("", false)), ns)
                 case RecEq(name, e:Array[Equation], ns) =>
                     if !(ops contains name) then throw new ParserException("Unknown Operation \"" + name + "\"", currentLine)
                     val op_cand = ops(name)
                     if op_cand.length == 1 then
                         val op = op_cand(0)
                         if op.par.length != e.length then throw new TypeException("Not enough parameters for operation \"" + name + "\"", currentLine)
+                        var alrdTyped = HashMap.empty[String, Type] //maps generics to actual types (should only happen during equation evaluation)
                         val np = 
                             for zeqp <- (op.par zip e) yield
                                 val sep = checkAndUpdateEquationType(ops)(zeqp._2, alreadydefvars)
@@ -137,21 +143,27 @@ object Parser:
                                     case AtomEq(n2, Some(_), ns2) => 
                                         AtomEq(n2, Some(zeqp._1), ns2)
                                     case _ =>
-                                        val tt = sep match 
+                                        val ttp = sep match 
                                             case nsep:RecEq => nsep.ref_op.get.ret
                                             case AtomEq(n2, None, _) => 
                                                 val aecand = ops(n2)
                                                 if aecand.length != 1 then throw new TypeException("Ambiguous operation definitions for operation \"" + n2 + "\" with no parameters!", currentLine)
                                                 aecand(0).ret
-
-                                        if !(ops contains sep.operation) || !(tt equals zeqp._1) then
-                                            throw new TypeException("Could not match \"" + sep.operation + "\" (with type: \"" + tt + "\") with expected type \"" + zeqp._1 + "\" in operation call for \"" + name + "\"", currentLine)
+                                        val tt = if alrdTyped.contains(ttp.tp) then alrdTyped(ttp.tp)
+                                            else 
+                                                if zeqp._1.isGeneric && !ttp.isGeneric then
+                                                    if !(alrdTyped contains(zeqp._1.tp)) then
+                                                        alrdTyped = alrdTyped + ((zeqp._1.tp, ttp))
+                                                ttp
+                                        val z1tt = if alrdTyped.contains(zeqp._1.tp) then alrdTyped(zeqp._1.tp) else zeqp._1
+                                        if !(ops contains sep.operation) || (!(tt equals zeqp._1) && !(tt equals z1tt)) then
+                                            throw new TypeException("Could not match \"" + sep.operation + "\" (with type: \"" + tt + "\") with expected type \"" + z1tt + "\" in operation call for \"" + name + "\"", currentLine)
                                         sep
                         val nre = new RecEq(name, np)
                         nre.ref_op = Some(op)
                         nre
                     else //multiple overriden candidates smh
-                        def calcParType:Equation => String = x => x match 
+                        def calcParType:Equation => Type = x => x match 
                             case n2:RecEq => n2.ref_op.get.ret
                             case ae:AtomEq =>
                                 val n2 = ae.op
@@ -163,7 +175,7 @@ object Parser:
                                 if poss.length == 0 then throw new TypeException("No fitting operation found for \"" + n2 + "\"" + 
                                     (if !ae.namespace.isEmpty then " with namespace \"" +ae.namespace.get+ "\"!" else "!"), currentLine) 
                                 poss(0).ret
-                            case _ => "_" //TODO: for right hand side also pass variable types of left hand side
+                            case _ => null 
                         
                         val pass1pars = e map (checkAndUpdateEquationType(ops)(_, alreadydefvars))
                         val partypes = pass1pars map (xeq => xeq match
@@ -172,11 +184,11 @@ object Parser:
                                     alreadydefvars(n2) match
                                         case AtomEq(_, Some(t), _) => t
                                         case _ => calcParType(xeq)
-                                else "_"
+                                else null
                             case _ => calcParType(xeq))
     
                         val actual_cand = op_cand filter(oc => oc.par.length == partypes.length 
-                                            && oc.par.zip(partypes).forall(p => p._2 == "_" || p._1 == p._2))
+                                            && oc.par.zip(partypes).forall(p => p._2 == null || p._1 == p._2 || p._1.isGeneric))
                         if actual_cand.length > 1 then throw new TypeException("Ambiguous operation usage for operation \"" + name + "\"", currentLine)
                         if actual_cand.length == 0 then throw new TypeException("No fitting definition for operation \"" + name + "\"", currentLine)
                         val actual = actual_cand(0)
@@ -201,4 +213,6 @@ object Parser:
         //gather all operations for type checking of equations
         val avOps = HashMap.from(prog.adts.foldLeft(List.empty[Operation])((o, adt) => 
                         o ++ adt.ops).toArray groupBy(op => op.name))
-        new Program(prog.adts map checkAndUpdateTypes, prog.expr map (checkAndUpdateEquationType(avOps)(_)))
+        val fst = prog.adts map checkAndUpdateTypes
+        currentLine = -1
+        new Program(fst, prog.expr map (checkAndUpdateEquationType(avOps)(_)))
