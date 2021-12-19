@@ -1,7 +1,6 @@
 # adt-interpreter
 ## Features
 Abstract Datatype (ADT) Parser, Type Checker and Interpreter. For language specification see below.
-Does NOT (yet) support generic types.
 Does support definition of multiple axioms per file and interpretation of 
 equations on top-level-scope. Those are allowed to access all operations of all Axioms
 defined in that file.
@@ -52,7 +51,8 @@ axs
 end
 ```
 The ``sorts`` section imports operators from other types defined in the same file. The ADT Names in sorts are seperated by commas `,`.
-The Operation Section lists all valid Operations and their types. Each Operation Definition consists of its name, followed by a `:` and the parameter types which are seperated by ` x `. After the parameter types the return types comes after an arrow `->`.
+Every Type in sorts which is not known or defined will be treated as a generic (type variable) and filled in during Interpretation.
+The Operation Section lists all valid Operations and their types. Each Operation Definition consists of its name, followed by a `:` and the parameter types which are seperated by ` x `. After the parameter types the return types follows after an arrow `->`.
 The ``axs``section provide reduction rules as equations. The left expression is then reducible to the right one (they allow an adt to be seen as a term rewriting system). 
 
 Before, inbetween and after the axiom definitions, single expressions are allowed which will be evaluated to its normal form by the interpreter and printed on the console.
