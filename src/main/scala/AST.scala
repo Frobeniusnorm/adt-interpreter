@@ -237,16 +237,22 @@ class AST(lines:Array[String]):
         if !line.contains("&") && !line.contains("|") then
             Literal(parseCondition(line, linenb))
         else
-            def splitFlat(str:String)(c:Char) = str.foldLeft((List[String](""), 0))((curr, x) => 
-                val withchar = (x + curr._1.head) :: curr._1.tail
+            def splitFlat(str:String)(c:Char) = str.foldLeft((List[String](""), 0, false))((curr, x) => 
+                val withchar = if x != ' ' && x != '\t' then (x + curr._1.head) :: curr._1.tail else curr._1
                 if x == '(' then 
-                    if curr._2 == 0 then (curr._1, curr._2 + 1)
-                    else (withchar, curr._2 + 1)
+                    if curr._2 == 0 then
+                        if curr._1.head.isEmpty then
+                            (curr._1, curr._2 + 1, false)
+                        else (withchar, curr._2 + 1, true) //this is a function call, dont kill the bracket
+                    else (withchar, curr._2 + 1, curr._3)
                 else if x == ')' then 
-                    if curr._2 == 1 then (curr._1, curr._2 - 1)
-                    else (withchar, curr._2 - 1)
-                else if curr._2 == 0 && x == c then ("" :: curr._1, curr._2)
-                else (withchar, curr._2)
+                    if curr._2 == 1 then 
+                        if curr._3 then 
+                            (withchar, curr._2 - 1, false) //this is a function call, dont kill the bracket
+                        else (curr._1, curr._2 - 1, false)
+                    else (withchar, curr._2 - 1, curr._3)
+                else if curr._2 == 0 && x == c then ("" :: curr._1, curr._2, false)
+                else (withchar, curr._2, curr._3)
             )
             //first try to collect all the disjunctive terms
             val disj = splitFlat(line)('|')
