@@ -1,0 +1,56 @@
+adt Nat
+sorts Nat
+ops
+    Zero:               -> Nat
+    succ:   Nat         -> Nat
+    add:    Nat x Nat   -> Nat
+    sub:    Nat x Nat   -> Nat
+axs
+    add(Zero, x) = x
+    add(succ(x), y) = succ(add(x, y))
+    sub(x, Zero) = x
+    sub(Zero, x) = Zero
+    sub(succ(x), succ(y)) = sub(x,y)
+end
+
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+
+    false:                     -> Boolean
+    not:   Boolean             -> Boolean
+
+    and:   Boolean x Boolean   -> Boolean
+    or:    Boolean x Boolean   -> Boolean
+axs
+    not(true) = false
+    not(false) = true
+    and(true, x) = x
+    and(false,x) = false
+    or(true, x) = true
+    or(false, x) = x
+end
+
+adt List
+sorts List, T, Boolean
+ops
+    Nil: -> List
+    Cons: T x List -> List
+    concat: List x List -> List
+    head: List -> T
+    tail: List -> List
+    contains: List x T -> Boolean
+axs
+    concat(Nil, x) = x
+    concat(Cons(x, a), b) = Cons(x, concat(a,b))
+    head(Cons(x, l)) = x
+    tail(Cons(x, l)) = l
+
+    contains(a, x) = | false                if a = Nil
+                    | true                  if head(a) = x
+                    | contains(tail(a), x)  else
+end
+
+contains(Cons(true, Cons(false, Cons(false, Cons(false, Nil)))), false)
+contains(Cons(succ(Zero), Cons(succ(succ(Zero)), Cons(succ(Zero), Cons(succ(Zero), Nil)))), Zero)

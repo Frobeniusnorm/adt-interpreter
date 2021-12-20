@@ -207,7 +207,18 @@ object Parser:
                         nre.ref_op = Some(actual)
                         nre
                 case CaseEq(css) => 
-                    new CaseEq(css map(ce => (checkAndUpdateEquationType(ops)(ce._1, alreadydefvars), ce._2)))
+                    def checkAndTypeLogicTerm(lt:LogicTerm) : LogicTerm = 
+                        lt match
+                            case Literal(cond) => Literal(checkAndTypeCondition(cond))
+                            case Disjunction(parts) => Disjunction(parts map checkAndTypeLogicTerm)
+                            case Conjunction(parts) => Conjunction(parts map checkAndTypeLogicTerm)
+                    def checkAndTypeCondition(c:Condition) : Condition = c match
+                        case Condition(null, true, null) => c
+                        case Condition(l, op, r) => 
+                            Condition(checkAndUpdateEquationType(ops)(l, alreadydefvars), op, 
+                                checkAndUpdateEquationType(ops)(r, alreadydefvars))
+             
+                    new CaseEq(css map(ce => (checkAndUpdateEquationType(ops)(ce._1, alreadydefvars), checkAndTypeLogicTerm(ce._2))))
         //top level logic:
         prog.adts foreach (checkNames)
         //gather all operations for type checking of equations
