@@ -1,0 +1,14 @@
+adt c1
+sorts c1
+ops
+    o10: -> c1
+    o11: c1 x c1 -> c1
+    o12: c1 -> c1
+axs
+    o11(a, b) = | o11(o12(a), o10) if a = o11(o10, o10) & b = o11(o10, o10)
+                | b           else
+    o12(o11(x, b)) = o10
+    o12(o10) = o11(o10, o10)
+    o12(a) = | o11(o10, o10) if a = o10 | a = o12(o10)
+             | o10           else
+end

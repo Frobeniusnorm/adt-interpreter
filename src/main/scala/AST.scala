@@ -216,7 +216,7 @@ class AST(lines:Array[String]):
                 RecEq(identifier, Array(parseEq(paramspace, linenb)), namespace)
             else
                 RecEq(identifier, splitFlatParamSpace(paramspace).map(pss => parseEq(pss, linenb)), namespace)
-    
+                
     def parseCaseEq(lines:Array[String], linenb:Int = -1):CaseEq =
         new CaseEq(lines.map (l => 
             val cIf = l.contains(" if ")
@@ -238,14 +238,15 @@ class AST(lines:Array[String]):
             Literal(parseCondition(line, linenb))
         else
             def splitFlat(str:String)(c:Char) = str.foldLeft((List[String](""), 0))((curr, x) => 
+                val withchar = (x + curr._1.head) :: curr._1.tail
                 if x == '(' then 
                     if curr._2 == 0 then (curr._1, curr._2 + 1)
-                    else ((x + curr._1.head) :: curr._1.tail, curr._2 + 1)
+                    else (withchar, curr._2 + 1)
                 else if x == ')' then 
                     if curr._2 == 1 then (curr._1, curr._2 - 1)
-                    else ((x + curr._1.head) :: curr._1.tail, curr._2 - 1)
+                    else (withchar, curr._2 - 1)
                 else if curr._2 == 0 && x == c then ("" :: curr._1, curr._2)
-                else ((x + curr._1.head) :: curr._1.tail, curr._2)
+                else (withchar, curr._2)
             )
             //first try to collect all the disjunctive terms
             val disj = splitFlat(line)('|')

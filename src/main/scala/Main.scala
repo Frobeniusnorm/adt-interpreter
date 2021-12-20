@@ -6,7 +6,7 @@ def printHelp: Unit =
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 
 @main
-def test() = main("examples/correct/linkedlist.adt") 
+def test() = main("examples/correct/cases_2.adt") 
 
 @main
 def main(file:String) =
