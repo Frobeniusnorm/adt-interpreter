@@ -5,9 +5,9 @@ def printHelp: Unit =
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 
-@main
+/* @main
 def test() = main("examples/correct/comments.adt") 
-
+ */
 @main
 def main(file:String) =
   val ast = new AST(readFile(file))
