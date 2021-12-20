@@ -1,0 +1,48 @@
+adt test
+sorts test
+ops
+    c1 : -> test
+    c2 : -> test
+    c3 : -> test
+    combine : test x test -> test
+axs
+    combine(x, y) = | c2 if x = y & y = c1 | y != x & x = c2 
+                    | c3 if (x = y) & y = c2
+                    | c1 if x = y & (y = c3)
+                    | c1 else
+end
+
+combine(combine(c3, c2), combine(c3, c3))
+combine(c2, combine(c2, c2))
+
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+    false:                     -> Boolean
+    and:   Boolean x Boolean   -> Boolean
+    or:    Boolean x Boolean   -> Boolean
+axs
+    and(true, x) = x
+    and(false,x) = false
+    or(true, x) = true
+    or(false, x) = x
+end
+
+adt BooleanTuple
+sorts BooleanTuple, Boolean
+ops
+    init: Boolean x Boolean -> BooleanTuple
+    tupleAnd: BooleanTuple -> Boolean
+    tupleOr: BooleanTuple -> Boolean
+    tupleXor: BooleanTuple -> Boolean
+axs
+    tupleAnd(init(x, y)) = | true   if x = true & y = true 
+                           | false  else
+
+    tupleOr(init(x, y))  = | true   if (x = true & (y = false | y = true) | (y = true & (x = false | x = true))
+                           | false  else
+    
+    tupleXor(init(x, y)) = | true   if (x = true & y = false) | (x = false & y = true)
+                           | false  else
+end
