@@ -2,11 +2,15 @@ import scala.collection.immutable.HashSet
 import scala.jdk.FunctionWrappers.RichFunction1AsDoubleToIntFunction
 import scala.annotation.meta.param
 import scala.collection.immutable.HashMap
-
+def stripComment(str:String) = 
+    if str.contains("//") then
+        str.split("//")(0)
+    else str
 def withoutSeperators(str:String) = str.replaceAll("[ \t]", "")
 def stripNameFromSeperators(str:String) = 
     val parts = str.split("[ \t]").filter(x => !x.isEmpty && x != " " && x != "\t")
-    if(parts.length != 1) throw new RuntimeException("illegal identifier: " + str)
+    if(parts.length != 1) 
+        throw new RuntimeException("illegal identifier: " + str)
     parts(0)
 def splitAtFirst(str:String)(sep:Char) = 
     val idx = str.indexOf(sep)
@@ -78,7 +82,7 @@ case class Axiom(left:Equation, right:Equation) extends Node:
 
 class AST(lines:Array[String]):
     LineTracker.clean()
-    val program = parse(lines)
+    val program = parse(lines map stripComment)
     //selects and groups the lines into adt groups, selects all other lines as to be evaluated expressions and parsed both
     def parse(lines:Array[String]):Program =
         val adts = lines.zipWithIndex
