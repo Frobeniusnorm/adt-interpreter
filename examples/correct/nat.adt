@@ -1,0 +1,28 @@
+adt Nat
+sorts Nat
+ops
+    zero:               -> Nat
+    succ:   Nat         -> Nat
+    pred:   Nat         -> Nat
+    add:    Nat x Nat   -> Nat
+    sub:    Nat x Nat   -> Nat
+    mul:    Nat x Nat   -> Nat
+    div:    Nat x Nat   -> Nat
+axs
+    pred(zero) = zero
+    pred(succ(x)) = x
+    add(zero, x) = x
+    add(succ(x), y) = succ(add(x, y))
+    sub(x, zero) = x
+    sub(zero, x) = zero
+    sub(succ(x), succ(y)) = sub(x,y)
+    mul(x, zero) = zero
+    mul(x, succ(y)) = add(x, mul(x,y))
+    div(x, y) = | zero                              if sub(y,x) != zero
+                | add(succ(zero), div(sub(x,y), y)) else
+end Nat
+
+mul(succ(succ(zero)), succ(succ(succ(zero))))
+div(mul(succ(succ(zero)), succ(succ(succ(zero)))), succ(succ(zero)))
+div(pred(add(succ(zero), succ(succ(zero)))), succ(zero))
+sub(div(zero, succ(zero)), succ(zero))
