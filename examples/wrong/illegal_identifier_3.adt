@@ -1,0 +1,16 @@
+adt Nat
+sorts Nat
+ops
+    Zero: -> Nat
+    succ: Nat -> Nat
+    add: Nat x Nat -> Nat
+    sub: Nat x Nat -> Nat
+axs
+    add(Zero, var1) = var1
+    add(succ(z), x) = succ(add(z, x))
+    sub(Zero, x) = Zero
+    sub(x, Zero) = x
+    sub(succ(x), succ(y)) = sub(x, y)
+    div(x i, y) = | zero                              if sub(y,x i) != zero
+                | add(succ(zero), div(sub(x i,y), y)) else
+end

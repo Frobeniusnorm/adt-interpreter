@@ -7,10 +7,10 @@ def stripComment(str:String) =
         str.split("//")(0)
     else str
 def withoutSeperators(str:String) = str.replaceAll("[ \t]", "")
-def stripNameFromSeperators(str:String) = 
+def stripNameFromSeperators(str:String, line:Int) = 
     val parts = str.split("[ \t]").filter(x => !x.isEmpty && x != " " && x != "\t")
     if(parts.length != 1) 
-        throw new RuntimeException("illegal identifier: " + str)
+        throw new ParserException("illegal identifier: " + str, line)
     parts(0)
 def splitAtFirst(str:String)(sep:Char) = 
     val idx = str.indexOf(sep)
@@ -32,6 +32,7 @@ case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:Hash
 
 case class Operation(name:String, var par:Array[Type], var ret:Type) extends Node:
     var orig_adt:String = "" //for namespaces: safes which adt it belongs to
+    override def toString = name + "(" + (par.flatMap(t => Array(", ", t.tp)).drop(1).fold("")(_ + _)) + "):" + ret.tp 
 
 abstract class Equation(val operation:String):
     def getVariables : HashMap[String, AtomEq]
@@ -95,8 +96,8 @@ class AST(lines:Array[String]):
         //lines in adts as hashset for contains performance
         val containedLines = HashSet.from((adtspaces flatMap (x => x(0) to x(1))))
         //lines that are not already in scope of a adt
-        val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => lines(i)) filter(!withoutSeperators(_).isEmpty)
-        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray, (eqlines map (pel => parseEq(pel))).toArray)
+        val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => (i, lines(i))) filter(x => !withoutSeperators(x._2).isEmpty)
+        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray, (eqlines map (pel => parseEq(pel._2, pel._1))).toArray)
     
     //Parses an ADT by its lines and subelements (sorts, ops, axs) by selecting the corresponding lines and calling their parse operations
     def parseADT(lines:Array[String], starts:Int):ADT =
@@ -117,7 +118,7 @@ class AST(lines:Array[String]):
             if(sortlines(0).length < 7) throw new ParserException("A Datatype must at least sort itself!", sortlines_wi(0)._2 + starts)
             LineTracker.registerLine("sorts(" + name + ")", sortlines_wi(0)._2 + starts)
             sortlines(0).substring(6).split(",").map(x => 
-                stripNameFromSeperators(x))
+                stripNameFromSeperators(x, sortlines_wi(0)._2 + starts))
         val ops = 
             val opslines = lines.zipWithIndex.filter((x, i) => x.startsWith("ops"))
             if(opslines.length == 0) throw new ParserException("Datatypes need an operations part, even if it may be empty", starts)
@@ -152,20 +153,21 @@ class AST(lines:Array[String]):
     def parseOP(line:String, linenb:Int):Operation =
         val parts1 = line.split(":")
         if(parts1.length != 2) throw new ParserException(s"illegal operation definition: \"${line}\"", linenb)
-        val name = stripNameFromSeperators(parts1(0))
+        val name = stripNameFromSeperators(parts1(0), linenb)
         val pars = parts1(1)
         val arrowpos = pars.indexOf("->")
         if(arrowpos == -1 || line.length < arrowpos + 3) throw new TypeException("Every Operation needs a return type!", linenb)
-        val ret = new Type(stripNameFromSeperators(pars.substring(arrowpos + 2)))
+        val ret = new Type(stripNameFromSeperators(pars.substring(arrowpos + 2), linenb))
         val paramspace = pars.substring(0, arrowpos)
         
         val par = if paramspace.replaceAll(" ", "").replaceAll("\t", "").length > 0 then 
-                paramspace.split(" x ").map(x => new Type(stripNameFromSeperators(x)))
+                paramspace.split(" x ").map(x => new Type(stripNameFromSeperators(x, linenb)))
                 else Array[Type]()
         val nmbx = countMatches(paramspace, " x ")
         if par.length != nmbx + 1 && !(par.length == 0 && nmbx == 0) then throw new ParserException("Unexpected number of Occurences of ' x ' in parameters ("+nmbx+" occurences, " +par.length + " parameters)!", linenb)
-        
-        new Operation(name, par, ret)
+        val op = new Operation(name, par, ret)
+        LineTracker.registerLine(s"op(${op})", linenb)
+        op
 
     //parses one Axiom in one line, but the axiom may consume multiple lines if it has a case statement in the right equation, in this case all the lines that are consumed by the axiom will yield None
     def parseAx(index:Int, lines:Array[String], starts:Int):Option[Axiom] = 
@@ -180,13 +182,15 @@ class AST(lines:Array[String]):
                     withoutSeperators(l._1) startsWith("|")
                 )
                 csl foreach (l => lines(l._2 + index + 1) = null)
-                new Axiom(parseEq(parts(0), index + starts), parseCaseEq(Array(parts(1)) ++ (csl map (_._1))))
+                new Axiom(parseEq(parts(0), index + starts), parseCaseEq(Array(parts(1)) ++ (csl map (_._1)), index + starts))
             else new Axiom(parseEq(parts(0), index + starts), parseEq(parts(1), index + starts))
+            LineTracker.registerLine("axseq(" + axs.left + ")", index + starts)
             Some(axs)
 
     //parses one Equation in one line
     def parseEq(line:String, linenb:Int = -1):Equation =
         //extracts only the operation for the outer most brackets and leaves the other ones as strings
+        
         def splitFlatParamSpace(str:String):Array[String] = 
             val flr = str.foldLeft((0, List[String]("")))((acc, x) => 
                 (if x == '(' then acc._1 + 1 else if x == ')' then acc._1 - 1 else acc._1,
@@ -195,31 +199,34 @@ class AST(lines:Array[String]):
             if flr._1 != 0 then throw new ParserException("mismatched brackets", linenb)
             else flr._2.reverse.toArray
         def nameAndNamespace(name:String):(String, Option[String]) =
-            val res = stripNameFromSeperators(name)
+            val res = stripNameFromSeperators(name, linenb)
             if res.contains(".") then
                 val parts = res.split("\\.")
                 if parts.length != 2 then
                     throw new ParserException("Invalid namespace decleration (\"" + name + "\")!", linenb)
                 (parts(1), Some(parts(0)))
             else (res, None)
-
-        val opening = line.indexOf('(')
-        val closing = line.lastIndexOf(')')
-        if opening == -1 && closing == -1 then 
-            val (identifier, namespace) = nameAndNamespace(line)
-            AtomEq(identifier, None, namespace)
-        else if opening == -1 || closing == -1 then
-            throw new ParserException("mismatched brackets" + line, linenb)
-        else if closing == opening + 1 then
-            val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
-            AtomEq(identifier, None, namespace).onlyAsOperation()
-        else
-            val paramspace = line.substring(opening + 1, closing)
-            val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
-            if !paramspace.contains(",") then
-                RecEq(identifier, Array(parseEq(paramspace, linenb)), namespace)
+        def helperPEQ = 
+            val opening = line.indexOf('(')
+            val closing = line.lastIndexOf(')')
+            if opening == -1 && closing == -1 then 
+                val (identifier, namespace) = nameAndNamespace(line)
+                AtomEq(identifier, None, namespace)
+            else if opening == -1 || closing == -1 then
+                throw new ParserException("mismatched brackets" + line, linenb)
+            else if closing == opening + 1 then
+                val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
+                AtomEq(identifier, None, namespace).onlyAsOperation()
             else
-                RecEq(identifier, splitFlatParamSpace(paramspace).map(pss => parseEq(pss, linenb)), namespace)
+                val paramspace = line.substring(opening + 1, closing)
+                val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
+                if !paramspace.contains(",") then
+                    RecEq(identifier, Array(parseEq(paramspace, linenb)), namespace)
+                else
+                    RecEq(identifier, splitFlatParamSpace(paramspace).map(pss => parseEq(pss, linenb)), namespace)
+        val reseq = helperPEQ
+        LineTracker.registerLine(s"eq(${reseq})", linenb)
+        reseq
                 
     def parseCaseEq(lines:Array[String], linenb:Int = -1):CaseEq =
         new CaseEq(lines.map (l => 

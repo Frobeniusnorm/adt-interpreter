@@ -2,7 +2,7 @@ import scala.collection.immutable.HashMap
 import scala.collection.immutable.HashSet
 
 object Parser:
-    var currentLine = -1
+
     def parseProgram(prog:Program):Program = 
         val namespaces:HashMap[String, HashSet[Operation]] = HashMap.from(prog.adts map(x => x.name -> x.ops))
         val adts = HashMap.from(prog.adts map(x => x.name -> x))
@@ -18,7 +18,7 @@ object Parser:
             for op <- adt.ops do
                 for t <- op.par :+ op.ret do
                     if !(knownTypes contains (t.tp)) && !(typeVars contains (t.tp)) then 
-                        throw new TypeException("Unknown Type \"" + t + "\" in ops of \"" + adt.name + "\"", LineTracker.getLine(s"ops(${adt.name})"))
+                        throw new TypeException("Unknown Type \"" + t + "\" in ops of \"" + adt.name + "\"", LineTracker.getLine(s"op(${op})"))
                 op.par = op.par map(par => if typeVars contains (par.tp) then Type(par.tp, true) else par)
                 op.ret = if typeVars contains (op.ret.tp) then Type(op.ret.tp, true) else op.ret
             adt.typeVars = HashSet.from(typeVars)
@@ -27,18 +27,18 @@ object Parser:
          * Checks types of all axioms of an adt and sets the variable types
          */ 
         def checkAndUpdateTypes(adt:ADT):ADT =
-            currentLine = -1
+            
             val knownOps = HashMap.from((namespaces filter(x => adt.sorts contains(x._1)) flatMap(x => x._2)).toArray groupBy(x => x.name))
             val axs = adt.axs map (x => 
-                currentLine = LineTracker.getLine(s"axs(${adt.name})")
-                val left = checkAndUpdateEquationType(knownOps)(x.left)
+                val currentLine = LineTracker.getLine(s"axseq(${x.left})")
+                val left = checkAndUpdateEquationType(knownOps, currentLine)(x.left)
                 left match
-                    case AtomEq(name, None, _) => throw new ParserException("Illegal atomic operation \"" + name + "\" on left hand side!", LineTracker.getLine(s"axs(${adt.name})"))
-                    case AtomEq(name, Some(_), _) => throw new ParserException("Illegal single variable \"" + name + "\" on left hand side!", LineTracker.getLine(s"axs(${adt.name})"))
-                    case CaseEq(cases) => throw new ParserException("Illegal case statement on left hand side of Axiom!", LineTracker.getLine(s"axs(${adt.name})"))
+                    case AtomEq(name, None, _) => throw new ParserException("Illegal atomic operation \"" + name + "\" on left hand side!", currentLine)
+                    case AtomEq(name, Some(_), _) => throw new ParserException("Illegal single variable \"" + name + "\" on left hand side!", currentLine)
+                    case CaseEq(cases) => throw new ParserException("Illegal case statement on left hand side of Axiom!", currentLine)
                     case _ => //that's fine
                 val leftvars = left.getVariables
-                val rightc = checkAndUpdateEquationType(knownOps)(x.right, leftvars)
+                val rightc = checkAndUpdateEquationType(knownOps, currentLine)(x.right, leftvars)
                 val right = rightc match
                     case AtomEq(name, Some(_), ns) => left match
                         case lt:RecEq => 
@@ -53,15 +53,15 @@ object Parser:
                 //vars must match
                 right.getVariables foreach((v1, ae1) =>
                     if !leftvars.contains(v1) then
-                        throw new ParserException("Unknown Variable \"" + v1 + "\" on right hand side of Axiom!", LineTracker.getLine(s"axs(${adt.name})"))
+                        throw new ParserException("Unknown Variable \"" + v1 + "\" on right hand side of Axiom!", currentLine)
                     val ae2 = leftvars(v1)
                     if ae1.varType.isEmpty then
-                        throw new ParserException("Variable on right hand sind has no type (wtf)!", LineTracker.getLine(s"axs(${adt.name})"))
+                        throw new ParserException("Variable on right hand side has no type (wtf)!", currentLine)
                     if ae2.varType.isEmpty then
-                        throw new ParserException("Variable on left hand sind has no type (wtf)!", LineTracker.getLine(s"axs(${adt.name})"))
+                        throw new ParserException("Variable on left hand side has no type (wtf)!", currentLine)
                     if ae1.varType.get != ae2.varType.get then
                         throw new TypeException("Could not match variable type for \"" + v1 + "\"! " +
-                          "Type of variable on left hand side: \"" + ae2.varType.get + "\", on right hand side: \"" + ae1.varType.get + "\"", LineTracker.getLine(s"axs(${adt.name})"))
+                          "Type of variable on left hand side: \"" + ae2.varType.get + "\", on right hand side: \"" + ae1.varType.get + "\"", currentLine)
                 )
                 //still have to check if term variables even exist and type them
                 val fright = right match
@@ -72,10 +72,10 @@ object Parser:
                                 AtomEq(name, leftvars(name).varType, ns)
                                 else if knownOps.contains(name) then
                                     AtomEq(name, None, ns)
-                                else throw new ParserException("Unknown literal \"" + name + "\" in case condition!" , LineTracker.getLine(s"axs(${adt.name})"))
+                                else throw new ParserException("Unknown literal \"" + name + "\" in case condition!" , currentLine)
                             case tlre:RecEq =>
                                 val (name, parts) = (tlre.op, tlre.params)
-                                if !(knownOps contains name) then throw new ParserException("Could not find operation \"" + name + "\"!", LineTracker.getLine(s"axs(${adt.name})")) 
+                                if !(knownOps contains name) then throw new ParserException("Could not find operation \"" + name + "\"!",currentLine) 
                                 val foo = RecEq(name, (parts zip tlre.ref_op.get.par) map (p => 
                                     val rp = completeVars(p._1)
                                     val rpt = rp match 
@@ -84,16 +84,16 @@ object Parser:
                                             case None => knownOps(namer)(0).ret //assured trough typing method
                                             case Some(ns2) => 
                                                 val poss = knownOps(namer) filter(op => op.orig_adt == ns2)
-                                                if poss.length != 1 then throw new TypeException("Ambiguous usage of operation \"" + namer + "\"!", LineTracker.getLine(s"axs(${adt.name})"))
+                                                if poss.length != 1 then throw new TypeException("Ambiguous usage of operation \"" + namer + "\"!", currentLine)
                                                 poss(0)
                                         case rptc:RecEq => rptc.ref_op.get.ret
-                                        case CaseEq(_) => throw new ParserException("Case Equations are not allowed to be recursively stacked!", LineTracker.getLine(s"axs(${adt.name})"))
-                                    if rpt != p._2 then throw new TypeException("Could not match type \"" + rpt + "\" with expected type \"" +p._2+ "\" in operation \"" + name + "\"", LineTracker.getLine(s"axs(${adt.name})"))
+                                        case CaseEq(_) => throw new ParserException("Case Equations are not allowed to be recursively stacked!", currentLine)
+                                    if rpt != p._2 then throw new TypeException("Could not match type \"" + rpt + "\" with expected type \"" +p._2+ "\" in operation \"" + name + "\"", currentLine)
                                     rp    
                                 ), tlre.namespace)
                                 foo.ref_op = tlre.ref_op
                                 foo
-                            case _ => throw new ParserException("Illegal Equation type in Condition: \"" + eq + "\"", LineTracker.getLine(s"axs(${adt.name})"))
+                            case _ => throw new ParserException("Illegal Equation type in Condition: \"" + eq + "\"", currentLine)
                         def completeTerms(lt:LogicTerm):LogicTerm = lt match
                             case Literal(Condition(x, e, y)) => Literal(Condition(completeVars(x), e, completeVars(y)))
                             case Conjunction(parts) => Conjunction(parts map completeTerms)
@@ -112,17 +112,17 @@ object Parser:
                         case CaseEq(cases) => 
                             val firsttype= getTypeOfBasic(cases(0)._1)
                             if !cases.drop(1).forall(ce => getTypeOfBasic(ce._1) == firsttype) then
-                                throw new TypeException("All results of cases must have same Type!", LineTracker.getLine(s"axs(${adt.name})"))
+                                throw new TypeException("All results of cases must have same Type!", currentLine)
                             firsttype
                         case e:Equation => getTypeOfBasic(e)
                 if(lefttype != righttype)
-                    throw new TypeException("Type of left side (\"" + lefttype +"\") does not match type of right side (\"" + righttype +"\")! ", LineTracker.getLine(s"axs(${adt.name})"))
+                    throw new TypeException("Type of left side (\"" + lefttype +"\") does not match type of right side (\"" + righttype +"\")! ",currentLine)
                 new Axiom(left, fright)
             )
             new ADT(adt.name, axs, adt.ops, adt.sorts)
         //Every Equation must be typable, since it only has one outer operation
         /** Updates AtomicEq that are variables and checks if the type of the equation is complete */ 
-        def checkAndUpdateEquationType(ops:HashMap[String, Array[Operation]])
+        def checkAndUpdateEquationType(ops:HashMap[String, Array[Operation]], currentLine:Int)
                 (eq:Equation, alreadydefvars:HashMap[String, AtomEq] = HashMap.empty[String, AtomEq]) : Equation = 
             eq match
                 case AtomEq(name, _, ns) => if ops.contains(name) then AtomEq(name, None, ns) else 
@@ -138,7 +138,7 @@ object Parser:
                         var alrdTyped = HashMap.empty[String, Type] //maps generics to actual types (should only happen during equation evaluation)
                         val np = 
                             for zeqp <- (op.par zip e) yield
-                                val sep = checkAndUpdateEquationType(ops)(zeqp._2, alreadydefvars)
+                                val sep = checkAndUpdateEquationType(ops, currentLine)(zeqp._2, alreadydefvars)
                                 sep match
                                     case AtomEq(n2, Some(_), ns2) => 
                                         AtomEq(n2, Some(zeqp._1), ns2)
@@ -177,7 +177,7 @@ object Parser:
                                 poss(0).ret
                             case _ => null 
                         
-                        val pass1pars = e map (checkAndUpdateEquationType(ops)(_, alreadydefvars))
+                        val pass1pars = e map (checkAndUpdateEquationType(ops, currentLine)(_, alreadydefvars))
                         val partypes = pass1pars map (xeq => xeq match
                             case AtomEq(n2, Some(_), _) =>
                                 if alreadydefvars contains(n2) then
@@ -215,15 +215,14 @@ object Parser:
                     def checkAndTypeCondition(c:Condition) : Condition = c match
                         case Condition(null, true, null) => c
                         case Condition(l, op, r) => 
-                            Condition(checkAndUpdateEquationType(ops)(l, alreadydefvars), op, 
-                                checkAndUpdateEquationType(ops)(r, alreadydefvars))
+                            Condition(checkAndUpdateEquationType(ops, currentLine)(l, alreadydefvars), op, 
+                                checkAndUpdateEquationType(ops, currentLine)(r, alreadydefvars))
              
-                    new CaseEq(css map(ce => (checkAndUpdateEquationType(ops)(ce._1, alreadydefvars), checkAndTypeLogicTerm(ce._2))))
+                    new CaseEq(css map(ce => (checkAndUpdateEquationType(ops, currentLine)(ce._1, alreadydefvars), checkAndTypeLogicTerm(ce._2))))
         //top level logic:
         prog.adts foreach (checkNames)
         //gather all operations for type checking of equations
         val avOps = HashMap.from(prog.adts.foldLeft(List.empty[Operation])((o, adt) => 
                         o ++ adt.ops).toArray groupBy(op => op.name))
         val fst = prog.adts map checkAndUpdateTypes
-        currentLine = -1
-        new Program(fst, prog.expr map (checkAndUpdateEquationType(avOps)(_)))
+        new Program(fst, prog.expr map (expr => checkAndUpdateEquationType(avOps, LineTracker.getLine(s"eq(${expr})"))(expr)))
