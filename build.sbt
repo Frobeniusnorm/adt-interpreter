@@ -4,7 +4,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "adt-interpreter",
-    version := "1.2.1",
+    version := "1.2.2",
 
     scalaVersion := scala3Version,
 
