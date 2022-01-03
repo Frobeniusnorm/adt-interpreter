@@ -1,7 +1,9 @@
 # adt-interpreter
+[![Scala CI](https://github.com/Frobeniusnorm/adt-interpreter/actions/workflows/scala.yml/badge.svg?branch=main)](https://github.com/Frobeniusnorm/adt-interpreter/actions/workflows/scala.yml)
 ## Features
 Abstract Datatype (ADT) Parser, Type Checker and Interpreter. For language specification see below.
-Does support definition of multiple axioms per file and interpretation of 
+Interprets a notation type for ADTs and is able to evaluate equations based on the given axioms.
+Supports definition of multiple axioms per file and interpretation of 
 equations on top-level-scope. Those are allowed to access all operations of all Axioms
 defined in that file.
 
