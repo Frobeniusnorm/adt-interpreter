@@ -5,6 +5,7 @@ class CompilerException(msg:String, line:Int) extends RuntimeException(msg):
 class ParserException(msg:String, line:Int = -1) extends CompilerException(msg, line)
 class TypeException(msg:String, line:Int = -1) extends CompilerException(msg, line)
 class ExecutionException(msg:String, line:Int = -1) extends CompilerException(msg, line)
+class InfiniteRecursionException(msg:String, line:Int = -1) extends ExecutionException(msg, line)
 
 object LineTracker:
     private val lineTable:HashMap[String, Int] = HashMap.empty[String, Int]

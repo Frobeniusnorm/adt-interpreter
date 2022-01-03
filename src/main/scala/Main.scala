@@ -4,9 +4,9 @@ def printHelp: Unit =
   println("help")
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
-/* 
+ 
 @main
-def test() = main("examples/wrong/illegal_identifier_3.adt")  */
+def test() = main("examples/wrong/infinite_recursion.adt")  
  
 @main
 def main(file:String) =

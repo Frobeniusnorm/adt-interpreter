@@ -1,0 +1,11 @@
+adt test
+sorts test
+ops
+    c1 : -> test
+    c2 : -> test
+    c3 : -> test
+    combine : test x test -> test
+axs
+    combine(x, y) = combine(y, x)
+end
+combine(c1, c3)

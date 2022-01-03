@@ -2,13 +2,9 @@ import scala.collection.immutable.HashSet
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.OpenHashMap
 
-//idea: per iteration try from outer to inner to match axioms
-//if in one iteration not a single axiom was matched => terminate 
-//For each application of an axiom safe which variables have which names in the axiom
-
 class Interpreter(prog:Program):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
-    val evaledExpr = (prog.expr map reduceEquation)
+    val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
     /**
      * Collects and Hashes all operations and Axioms
      */ 
@@ -22,30 +18,34 @@ class Interpreter(prog:Program):
     /**
      * Applies applyMatching as long as it matches something
      */ 
-    def reduceEquation(e:Equation):Equation =
+    def reduceEquation(e:Equation, line:Int):Equation =
         var x = e
-        var m = applyMatching(x)
+        var m = applyMatching(x, line)
+        var seen = HashSet.empty[String]
         while !m.isEmpty do 
             x = m.get
-            m = applyMatching(x)
+            if seen contains x.toString then
+                throw InfiniteRecursionException("Infinite Recursion: Axioms will be applied infinite times on this term!", line)
+            seen = seen + x.toString
+            m = applyMatching(x, line)
         x
     /**
      * Trys to find an matching axiom, if found applies it, else
      * tries to match one of the parameter equations if the equation itself is a recursive equation.
      * @return None if no axiom could be matched on the Equation, else Some(e) with e being the transformed equation
      */
-    def applyMatching(e:Equation):Option[Equation] = 
+    def applyMatching(e:Equation, line:Int):Option[Equation] = 
         e match
             case x:AtomEq => None
             case x:RecEq =>
                 val matching = if !avAxs.contains(x.op) then None else avAxs(x.op) find(ax => matches(ax.left, x))
                 if !matching.isEmpty then
-                    Some(applyAxiom(x, matching.get))
+                    Some(applyAxiom(x, matching.get, line))
                 else
                     var found:Option[Equation] = None
                     var i = 0
                     while i < x.params.length && found.isEmpty do //sorry Curry and Howard and Holy Monad in heaven, forgive me my imperative sins
-                        val rek = applyMatching(x.params(i))
+                        val rek = applyMatching(x.params(i), line)
                         if !rek.isEmpty then
                             found = rek
                         else i += 1
@@ -87,7 +87,7 @@ class Interpreter(prog:Program):
             case RecEq(ep, epar, _) => (epar zip pars).foldLeft(HashMap.empty[String, Equation]) ((acc, x) =>
                 acc ++ fillVariables(x._1, x._2))
 
-    def applyAxiom(e:Equation, ax:Axiom) : Equation = 
+    def applyAxiom(e:Equation, ax:Axiom, line:Int) : Equation = 
         val vars = fillVariables(e, ax.left)
         def visitEquationsAndReplace(a:Equation) : Equation = a match
             case AtomEq(name, Some(_), _) => vars(name)
@@ -97,15 +97,15 @@ class Interpreter(prog:Program):
                 foo.ref_op = re.ref_op
                 foo
             case CaseEq(parts) =>
-                val res = parts find(x => isLogicTerm(vars)(x._2))
-                if res.isEmpty then throw new RuntimeException("Could not find fulfilling case predicate!")
+                val res = parts find(x => isLogicTerm(vars, line)(x._2))
+                if res.isEmpty then throw new ExecutionException("Could not find fulfilling case predicate!", line)
                 //res could be a single variable
                 visitEquationsAndReplace(res.get._1)
             //Here evaluate CondEq with its logic terms etc.
         visitEquationsAndReplace(ax.right)
 
-    def isLogicTerm(vars:(HashMap[String, Equation]))(lt:LogicTerm):Boolean = 
-        def rek = isLogicTerm(vars)
+    def isLogicTerm(vars:(HashMap[String, Equation]), line:Int)(lt:LogicTerm):Boolean = 
+        def rek = isLogicTerm(vars, line)
         def insertVars(e:Equation):Equation = e match
             case AtomEq(name, Some(_),_ ) => vars(name)
             case AtomEq(name, None, _) => e
@@ -113,13 +113,13 @@ class Interpreter(prog:Program):
                 val foo = RecEq(re.op, re.params map insertVars)
                 foo.ref_op = re.ref_op
                 foo
-            case _ => throw new RuntimeException("Illegal equation type in logic term: " + e)
+            case _ => throw new ExecutionException("Illegal equation type in logic term: " + e, line)
         lt match
             case Literal(Condition(x, e, y)) => 
                 if x == null || y == null then true //else case
                 else 
-                    val eq1 = reduceEquation(insertVars(x))
-                    val eq2 = reduceEquation(insertVars(y))
+                    val eq1 = reduceEquation(insertVars(x), line)
+                    val eq2 = reduceEquation(insertVars(y), line)
                     if e then eq1.toString == eq2.toString else eq1.toString != eq2.toString
             case Disjunction(parts) =>
                 parts exists (rek)

@@ -12,7 +12,9 @@ class ExamplesTest extends AnyFunSuite with Matchers:
       forEvery(positives){
         x =>
           try
-            Parser.parseProgram(new AST(readFile(x.getPath)).program) shouldNot be (null)
+            val pp =Parser.parseProgram(new AST(readFile(x.getPath)).program) 
+            pp shouldNot be (null)
+            Interpreter(pp)
             println(x.getName + " passed")
           catch
             case e => fail("File \"" + x.getName + "\" was not compiled correctly! " + e.getClass + ": " + e.getMessage + " in " + e.getStackTrace.foldLeft("")((o, a) => o + "\n" + a.toString))
@@ -24,7 +26,9 @@ class ExamplesTest extends AnyFunSuite with Matchers:
           x =>
             var didAnError = true
             try
-              Parser.parseProgram(new AST(readFile(x.getPath)).program) shouldNot be (null)
+              val pp = Parser.parseProgram(new AST(readFile(x.getPath)).program) 
+              pp shouldNot be (null)
+              Interpreter(pp)
               didAnError = false
             catch
               case e => println(x.getName + " passed")

@@ -1,0 +1,13 @@
+adt test
+sorts test
+ops
+    c1 : -> test
+    c2 : -> test
+    c3 : -> test
+    combine : test x test -> test
+axs
+    combine(x, y) = | c2 if x = y & y = c1 | y != x & x = c2 
+                    | c3 if (x = y) & y = c2
+                    | c1 if x = y & (y = c3)
+end
+combine(c1, c3)
