@@ -1,8 +1,10 @@
 import scala.collection.immutable.HashSet
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.OpenHashMap
+import java.io.InputStreamReader
+import java.io.BufferedReader
 
-class Interpreter(prog:Program):
+class Interpreter(prog:Program, debug:Boolean = false):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
     /**
@@ -19,11 +21,18 @@ class Interpreter(prog:Program):
      * Applies applyMatching as long as it matches something
      */ 
     def reduceEquation(e:Equation, line:Int):Equation =
+        var reader:Option[BufferedReader] = None 
+        if debug then
+            println("Reducing Equation: " + e)
+            reader = Some(new BufferedReader(new InputStreamReader(System.in)))
         var x = e
         var m = applyMatching(x, line)
         var seen = HashSet.empty[String]
         while !m.isEmpty do 
             x = m.get
+            if debug then
+                println(" = " + x)
+                reader.get.readLine()
             if seen contains x.toString then
                 throw InfiniteRecursionException("Infinite Recursion: Axioms will be applied infinite times on this term!", line)
             seen = seen + x.toString
@@ -38,25 +47,26 @@ class Interpreter(prog:Program):
         e match
             case x:AtomEq => None
             case x:RecEq =>
-                val matching = if !avAxs.contains(x.op) then None else avAxs(x.op) find(ax => matches(ax.left, x))
-                if !matching.isEmpty then
-                    Some(applyAxiom(x, matching.get, line))
-                else
-                    var found:Option[Equation] = None
-                    var i = 0
-                    while i < x.params.length && found.isEmpty do //sorry Curry and Howard and Holy Monad in heaven, forgive me my imperative sins
-                        val rek = applyMatching(x.params(i), line)
-                        if !rek.isEmpty then
-                            found = rek
-                        else i += 1
-                    if found.isEmpty then
-                        None
-                    else 
-                        val np = Array.from(x.params)
-                        np(i) = found.get
-                        val rer = new RecEq(x.op, np)
-                        rer.ref_op = x.ref_op
-                        Some(rer)
+                var found = List.empty[(Int, Equation)]
+                var i = 0
+                while i < x.params.length do //sorry Curry and Howard and Holy Monad in heaven, forgive me my imperative sins
+                    val rek = applyMatching(x.params(i), line)
+                    if !rek.isEmpty then
+                        found = (i, rek.get) :: found 
+                    i += 1
+                if found.isEmpty then //recursive no axiom matched => match this one
+                    val matching = if !avAxs.contains(x.op) then None else avAxs(x.op) find(ax => matches(ax.left, x))
+                    if !matching.isEmpty then
+                        Some(applyAxiom(x, matching.get, line))
+                    else None
+                else 
+                    val np = Array.from(x.params)
+                    found.foreach((i, pe) => np(i) = pe)
+                    val rer = new RecEq(x.op, np)
+                    rer.ref_op = x.ref_op
+                    Some(rer)
+                
+                    
     /**
      * Checks if @param e matches @param ax, ax is usually the left hand side of an axiom
      */ 
