@@ -33,7 +33,7 @@ axs
 end
 
 adt List
-sorts List, T, Boolean
+sorts List, T, Boolean, Nat
 ops
     Nil: -> List
     Cons: T x List -> List
@@ -42,7 +42,12 @@ ops
     tail: List -> List
     contains: List x T -> Boolean
     isSubList: List x List -> Boolean
+    subList: List x Nat x Nat -> List
+    without: List x T -> List
+    append: List x T -> List
+    prepend: T x List -> List
 axs
+    prepend(x, l) = Cons(x, l)
     concat(Nil, x) = x
     concat(Cons(x, a), b) = Cons(x, concat(a,b))
     head(Cons(x, l)) = x
@@ -55,6 +60,7 @@ axs
                       | true  if b = Nil
                       | isSubList(tail(a), tail(b)) if head(a) = head(b)
                       | isSubList(tail(a), b) else
+    
 end
 
 contains(Cons(true, Cons(false, Cons(false, Cons(false, Nil)))), false)

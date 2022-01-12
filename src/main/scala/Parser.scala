@@ -187,8 +187,12 @@ object Parser:
                                 else null
                             case _ => calcParType(xeq))
     
-                        val actual_cand = op_cand filter(oc => oc.par.length == partypes.length 
+                        val actual_cand = 
+                            val fe = op_cand filter(oc => oc.par.length == partypes.length 
                                             && oc.par.zip(partypes).forall(p => p._2 == null || p._1 == p._2 || p._1.isGeneric))
+                            if !ns.isEmpty then
+                                fe filter (op => op.orig_adt == ns.get)
+                            else fe
                         if actual_cand.length > 1 then throw new TypeException("Ambiguous operation usage for operation \"" + name + "\"", currentLine)
                         if actual_cand.length == 0 then throw new TypeException("No fitting definition for operation \"" + name + "\"", currentLine)
                         val actual = actual_cand(0)
