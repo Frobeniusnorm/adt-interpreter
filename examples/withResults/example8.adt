@@ -1,0 +1,33 @@
+adt Bool
+sorts Bool
+ops
+    true:   -> Bool 
+    false:  -> Bool
+    not: Bool -> Bool 
+    and: Bool x Bool -> Bool 
+    or:  Bool x Bool -> Bool 
+    xor: Bool x Bool -> Bool 
+axs
+    not(x) = | false if x = true
+             | true  else
+    and(x, x) = | true  if x = true
+                | false if x = false 
+    and(x, y) = false
+
+    or(x, x) = | true if x = true
+               | false else 
+    or(x, y) = | true if x = true | y = true 
+               | false else
+    xor(x,x) = false
+    xor(x,y) = true
+end
+
+and(true, true)
+and(false, false)
+and(true, false)
+and(false, true)
+
+xor(true, true)
+xor(false, false)
+xor(true, false)
+xor(false, true)

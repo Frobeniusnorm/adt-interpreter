@@ -22,8 +22,9 @@ Interpreter Errors:
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 
 val allowedFlags = HashSet("--help", "-help", "-d", "-h", "--debug")
+
 /* @main
-def test() = main("adts.adt")  */
+def test() = main("examples/withResults/example8.adt")   */
 
 class ArgumentParser(args:Seq[String]): 
   val (file, flags) =

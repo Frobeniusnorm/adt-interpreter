@@ -55,9 +55,12 @@ class Interpreter(prog:Program, debug:Boolean = false):
                         found = (i, rek.get) :: found 
                     i += 1
                 if found.isEmpty then //recursive no axiom matched => match this one
-                    val matching = if !avAxs.contains(x.op) then None else avAxs(x.op) find(ax => matches(ax.left, x))
+                    val matching = if !avAxs.contains(x.op) then Array.empty[(Axiom, HashMap[String, Equation])] //no axioms
+                                    //find matching axioms, try to fill in vars, filter those which work, map to axiom and vars
+                                    else avAxs(x.op) filter(ax => matches(ax.left, x)) map(ax => (ax, fillVariables(e, ax.left))) filter(
+                                            ax => !ax._2.isEmpty) map(ax => (ax._1, ax._2.get))
                     if !matching.isEmpty then
-                        Some(applyAxiom(x, matching.get, line))
+                        Some(applyAxiom(x, matching.head._1, matching.head._2, line))
                     else None
                 else 
                     val np = Array.from(x.params)
@@ -76,7 +79,7 @@ class Interpreter(prog:Program, debug:Boolean = false):
                 case AtomEq(_, Some(et), _) => t == et
                 case AtomEq(op, None, ns) => 
                     (if ns.isEmpty then avOps(op) else avOps(op) filter (_.orig_adt == ns.get)) exists (_.ret == t)
-                case re:RecEq => //does not work because the equation wasn't typed, only the axiom
+                case re:RecEq => 
                     re.ref_op.get.ret == t)
             case AtomEq(op, None, _) => e match
                 case AtomEq(v, Some(t), _) => true
@@ -86,19 +89,25 @@ class Interpreter(prog:Program, debug:Boolean = false):
                 case RecEq(ep, epar, _) =>
                     op == ep && opar.length == epar.length && ((opar zip epar) forall ((a, b) => matches(a, b)))
                 case _ => false //no case matching needed here
+        
     /**
      * Maps the Variables in @param ax to the expressions in @param e
      */ 
-    def fillVariables(e:Equation, ax:Equation) : HashMap[String, Equation] = ax match
+    def fillVariables(e:Equation, ax:Equation) : Option[HashMap[String, Equation]] = ax match
         case AtomEq(name, Some(_), _) => 
-            HashMap(name -> e)
-        case AtomEq(op, None, _) => HashMap.empty[String, Equation]
+            Some(HashMap(name -> e))
+        case AtomEq(op, None, _) => Some(HashMap.empty[String, Equation])
         case RecEq(op, pars, _) => e match
-            case RecEq(ep, epar, _) => (epar zip pars).foldLeft(HashMap.empty[String, Equation]) ((acc, x) =>
-                acc ++ fillVariables(x._1, x._2))
+            case RecEq(ep, epar, _) => (epar zip pars).foldLeft(Some(
+                HashMap.empty[String, Equation]).asInstanceOf[Option[HashMap[String, Equation]]]) ((acc, x) => acc match
+                    case None => None //
+                    case Some(otvar) =>
+                        val rekvarop = fillVariables(x._1, x._2)
+                        if !rekvarop.isEmpty && rekvarop.get.filter(x=> otvar.contains(x._1)).forall(x => otvar(x._1) == x._2) then
+                            Some(otvar ++ rekvarop.get)
+                        else None)
 
-    def applyAxiom(e:Equation, ax:Axiom, line:Int) : Equation = 
-        val vars = fillVariables(e, ax.left)
+    def applyAxiom(e:Equation, ax:Axiom, vars:HashMap[String, Equation], line:Int) : Equation = 
         def visitEquationsAndReplace(a:Equation) : Equation = a match
             case AtomEq(name, Some(_), _) => vars(name)
             case AtomEq(name, None, _) => a
