@@ -4,7 +4,7 @@ import scala.collection.mutable.OpenHashMap
 import java.io.InputStreamReader
 import java.io.BufferedReader
 
-class Interpreter(prog:Program, debug:Boolean = false):
+class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
     /**
@@ -23,7 +23,7 @@ class Interpreter(prog:Program, debug:Boolean = false):
     def reduceEquation(e:Equation, line:Int):Equation =
         var reader:Option[BufferedReader] = None 
         if debug then
-            println("Reducing Equation: " + e)
+            log("Reducing Equation: " + e)
             reader = Some(new BufferedReader(new InputStreamReader(System.in)))
         var x = e
         var m = applyMatching(x, line)
@@ -31,7 +31,7 @@ class Interpreter(prog:Program, debug:Boolean = false):
         while !m.isEmpty do 
             x = m.get
             if debug then
-                println(" = " + x)
+                log(" = " + x)
                 reader.get.readLine()
             if seen contains x.toString then
                 throw InfiniteRecursionException("Infinite Recursion: Axioms will be applied infinite times on this term!", line)
