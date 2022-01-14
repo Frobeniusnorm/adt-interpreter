@@ -7,27 +7,18 @@ ADT - Interpreter
 
 Usage: java -jar <executable> <adt file>
 Where <executable> represents the .jar file of this program and <adt file> is a text file which contains adts and the expressions which should be evaluated.
-You can additionally pass the flag "-d" or "--debug" to start the interpreter in debug mode.
-
-If your OS does not support the color codes you can deactivate them with the "--nocolor" flag.
-
-
-Some error Messages explained:
-Interpreter Errors:
-- "Infinite Recursion: Axioms will be applied infinite times on this term!"
- During evaluation the interpreter applied axioms and one expression that was already evaluated appeared again.
- Further evaluation would never stop (since it would lead to an infinite loop).
-- "Could not find fulfilling case predicate!"
- During the evaluation of a equation with multiple cases, no case was fulfilled, therefor the equation cannot be evaluated. 
- Maybe you missed an 'else' case?
+Flags:
+  - "-d" or "--debug" start the interpreter in debug mode
+  - "--nocolor" deactivates color codes
+  - "-v" or "--verbose" additionally shows the original expression that was evaluated
   """
 
 def readFile:String => Array[String] = name => Source.fromFile(name).getLines.toArray
 
-val allowedFlags = HashSet("--help", "-help", "-d", "-h", "--debug", "--nocolor")
+val allowedFlags = HashSet("--help", "-help", "-d", "-h", "--debug", "--nocolor", "-v", "--verbose")
 
-@main
-def test() = main("examples/withResults/example8.adt", "--h")
+/* @main
+def test() = main("examples/withResults/example8.adt") */
 
 class ArgumentParser(args:Seq[String]): 
   val (file, flags) =
@@ -55,13 +46,14 @@ def main(arguments:String*) =
     val docolor = log(!ap.flags.get.contains("--nocolor"))(_)
     try
       val indebug = ap.flags.get.contains("-d") || ap.flags.get.contains("--debug")
+      val verbose = indebug || ap.flags.get.contains("-v") || ap.flags.get.contains("--verbose")
       if indebug then
         println("[started in debug modus, evaluation will be paused and verbosly printed. Press Enter each time to continue evaluation]")
       val ast = new AST(readFile(ap.file.get))
       val np = Parser.parseProgram(ast.program)
       val interpreter = new Interpreter(np, indebug, docolor)
       (ast.program.expr zip interpreter.evaledExpr) foreach (
-        (x, y) => docolor(x.toString + "\u001b[33m =\u001b[0m " + y.toString)
+        (x, y) => docolor((if verbose then x.toString + "\u001b[33m =\u001b[0m " else "") + y.toString)
       )
     catch
       case e:CompilerException => docolor(e.getMessage)
