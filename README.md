@@ -19,7 +19,11 @@ equations on top-level-scope. Those are allowed to access all operations of all 
 defined in that file.
 
 ## Usage
-Download the precompiled binary (or build by yourself) and pass the to-evaluate adt file name on the command line as an argument. There are no options yet.
+Download the precompiled binary (or build by yourself) and pass the to-evaluate adt file name on the command line as an argument.
+You can pass several flags to customize or debug the output/execution:
+  - "-d" or "--debug" start the interpreter in debug mode
+  - "--nocolor" deactivates color codes
+  - "-v" or "--verbose" additionally shows the original expression that was evaluated
 
 ## Build
 You need the JDK 8 or higher, the Scala Compiler Version 3 and sbt. Then just clone the project and execute `sbt run` to build and run it.
@@ -89,9 +93,11 @@ Example for a partly redundant definition of an `xor` Axiom in the Boolean Type 
 It's possible to overload operations (define multiple operations with the same name), as long as they have different parameters and can be distinguished by them. This additionally requires variables in axioms to stand at positions where their type can be unambiguously be determined. Alternatively you can use namespaces
 to differentiate operations with the same name with the syntax `<ADT Name>.<Operation Name>`.
 
+You can include expressions between or after the adt definitions, that will be evaluated with the given given Axioms.
+The result will be printed on stdout if the evaluation terminates.
+Since the newest version the reduction strategy for the expressions is leftmost-innermost, before it followed haskells lambda calculus with leftmost-outermost, but innermost makes more sense for this definition.
+
 ## TODOs
- - More tests
- - Help command
  - interactive mode after reading adt definition with command line option
 
 ## Contribute
