@@ -4,7 +4,7 @@ import scala.collection.mutable.OpenHashMap
 import java.io.InputStreamReader
 import java.io.BufferedReader
 
-class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit):
+class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = println):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
     /**
