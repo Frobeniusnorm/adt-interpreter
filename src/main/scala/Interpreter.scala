@@ -7,6 +7,18 @@ import java.io.BufferedReader
 class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = println):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
+    
+    def noColor(str:String) = str.replaceAll("\u001b\\[32m", "").replaceAll("\u001b\\[33m", "").replaceAll("\u001b\\[0m", "")
+                        .replaceAll("\u001b\\[36m", "").replaceAll("\u001b\\[35m", "")
+    
+    def replaceConstants(eq:String) =
+        val constants = prog.constants.map((f, e) => ("\u001b[36m" + f + "\u001b[0m") -> e)
+        var r = eq
+        var found = constants.find(c => r.contains(c._2.toString))
+        while !found.isEmpty do 
+            r= r.replace(found.get._2.toString, found.get._1.toString)
+            found = constants.find(c => r.contains(c._2.toString)) 
+        r
     /**
      * Collects and Hashes all operations and Axioms
      */ 
@@ -16,6 +28,7 @@ class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = prin
         //Hash Axioms by their first operation on left hand Side for faster pattern matching
         val avAxs = HashMap.from(prog.adts flatMap(adt => 
             adt.axs) groupBy (axs => axs.left.operation))
+       
         (avOps, avAxs)
     /**
      * Applies applyMatching as long as it matches something

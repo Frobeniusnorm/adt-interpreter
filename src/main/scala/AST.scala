@@ -25,7 +25,9 @@ def countMatches(str:String, pattern:String) =
 case class Type(tp:String, isGeneric:Boolean = false):
     override def toString:String = tp
 abstract class Node
-case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation]) extends Node
+case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation], 
+        constants:HashMap[String, Equation] = HashMap.empty[String,Equation]) extends Node:
+    var orig_constants = constants
 
 case class ADT(name:String, axs:Array[Axiom], ops:HashSet[Operation], sorts:HashSet[String]) extends Node:
     var typeVars:HashSet[String] = HashSet.empty[String]
@@ -83,6 +85,7 @@ case class Axiom(left:Equation, right:Equation) extends Node:
 
 class AST(lines:Array[String]):
     LineTracker.clean()
+    var constants:Option[HashMap[String, Equation]] = None
     val program = parse(lines map stripComment)
     //selects and groups the lines into adt groups, selects all other lines as to be evaluated expressions and parsed both
     def parse(lines:Array[String]):Program =
@@ -97,7 +100,10 @@ class AST(lines:Array[String]):
         val containedLines = HashSet.from((adtspaces flatMap (x => x(0) to x(1))))
         //lines that are not already in scope of a adt
         val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => (i, lines(i))) filter(x => !withoutSeperators(x._2).isEmpty)
-        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray, (eqlines map (pel => parseEq(pel._2, pel._1))).toArray)
+        constants = Some(HashMap.from((eqlines filter(_._2.contains(":=")) map (pel => parseConstant(pel._2, pel._1))).toArray))
+        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray, 
+                    (eqlines filter(!_._2.contains(":=")) map (pel => parseEq(pel._2, pel._1))).toArray,
+                    constants.get)
     
     //Parses an ADT by its lines and subelements (sorts, ops, axs) by selecting the corresponding lines and calling their parse operations
     def parseADT(lines:Array[String], starts:Int):ADT =
@@ -105,7 +111,7 @@ class AST(lines:Array[String]):
             if !lines.isEmpty then
                 val parts = lines(0).split(" ")
                 if lines(0).startsWith("adt ") && parts.length == 2 then
-                  parts(1)  
+                parts(1)  
                 else throw new ParserException("Illegal adt name: " + lines(0), starts)
             else throw new ParserException("Empty ADTs are not allowed", starts)
         if LineTracker.containsKey("adt(" + name + ")") then 
@@ -149,6 +155,14 @@ class AST(lines:Array[String]):
         LineTracker.registerLine("adt(" + name + ")", starts)
         new ADT(name, axs, HashSet[Operation]() ++ ops, new HashSet[String]() ++ sorts)
     
+    def parseConstant(line:String, linenb:Int):(String, Equation) = 
+        val parts = line.split(":=") 
+        if(parts.length > 2) throw new ParserException("Per constant definition only one ':=' is allowed!", linenb)
+        if(parts.length < 2) throw new ParserException("Unexpected number of sides for constant definition!", linenb)
+        val left = stripNameFromSeperators(parts(0), linenb)
+        LineTracker.registerLine(s"const(${left})", linenb)
+        (left, parseEq(parts(1), linenb))
+
     //Parses one Operation in one line
     def parseOP(line:String, linenb:Int):Operation =
         val parts1 = line.split(":")
@@ -187,14 +201,33 @@ class AST(lines:Array[String]):
             LineTracker.registerLine("axseq(" + axs.left + ")", index + starts)
             Some(axs)
 
+    def stripConstants(line:Equation, const:HashMap[String, Equation], linenb:Int):Equation = line match 
+        case AtomEq(op, vt, ns) =>
+            if const.contains(op) then stripConstants(const(op), const, linenb)
+            else line
+        case RecEq(op, pars, ns) =>
+            if const.contains(op) then throw new ParserException("Constants are not allowed in function calls!", linenb)
+            val res = new RecEq(op, pars map(stripConstants(_, const, linenb)), ns)
+            res.ref_op = (line.asInstanceOf[RecEq]).ref_op
+            res
+        case CaseEq(cases) => new CaseEq(cases map (ce => (stripConstants(ce._1, const, linenb), stripConstants(ce._2, const, linenb))))
+    
+    def stripConstants(line:LogicTerm, const:HashMap[String, Equation], linenb:Int):LogicTerm = line match 
+        case Literal(cond) => 
+            if cond == Condition.elseCond then line
+            else 
+                Literal(Condition(stripConstants(cond.left, const, linenb), cond.equals, stripConstants(cond.right, const, linenb)))
+        case Disjunction(terms) => Disjunction(terms map (stripConstants(_, const, linenb)))
+        case Conjunction(terms) => Disjunction(terms map (stripConstants(_, const, linenb)))
+
     //parses one Equation in one line
     def parseEq(line:String, linenb:Int = -1):Equation =
         //extracts only the operation for the outer most brackets and leaves the other ones as strings
-        
+        if line.contains(":=") then throw new ParserException("Constant definitions are only allowed on the global scope!", linenb)
         def splitFlatParamSpace(str:String):Array[String] = 
             val flr = str.foldLeft((0, List[String]("")))((acc, x) => 
                 (if x == '(' then acc._1 + 1 else if x == ')' then acc._1 - 1 else acc._1,
-                 if x == ',' && acc._1 == 0 then "" :: acc._2 else (acc._2.head + x) :: acc._2.tail)    
+                if x == ',' && acc._1 == 0 then "" :: acc._2 else (acc._2.head + x) :: acc._2.tail)    
             )
             if flr._1 != 0 then throw new ParserException("mismatched brackets", linenb)
             else flr._2.reverse.toArray
@@ -211,12 +244,16 @@ class AST(lines:Array[String]):
             val closing = line.lastIndexOf(')')
             if opening == -1 && closing == -1 then 
                 val (identifier, namespace) = nameAndNamespace(line)
-                AtomEq(identifier, None, namespace)
+                if !constants.isEmpty && constants.get.contains(identifier) then 
+                    stripConstants(constants.get(identifier), constants.get, linenb)
+                else AtomEq(identifier, None, namespace)
             else if opening == -1 || closing == -1 then
                 throw new ParserException("mismatched brackets" + line, linenb)
             else if closing == opening + 1 then
                 val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))
-                AtomEq(identifier, None, namespace).onlyAsOperation()
+                if !constants.isEmpty && constants.get.contains(identifier) then 
+                    stripConstants(constants.get(identifier), constants.get, linenb)
+                else AtomEq(identifier, None, namespace).onlyAsOperation()
             else
                 val paramspace = line.substring(opening + 1, closing)
                 val (identifier, namespace) = nameAndNamespace(line.substring(0, opening))

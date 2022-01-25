@@ -17,8 +17,8 @@ def readFile:String => Array[String] = name => Source.fromFile(name).getLines.to
 
 val allowedFlags = HashSet("--help", "-help", "-d", "-h", "--debug", "--nocolor", "-v", "--verbose")
 
-/* @main
-def test() = main("examples/withResults/example8.adt") */
+@main
+def test() = main("examples/correct/quicksort.adt")
 
 class ArgumentParser(args:Seq[String]): 
   val (file, flags) =
@@ -53,7 +53,7 @@ def main(arguments:String*) =
       val np = Parser.parseProgram(ast.program)
       val interpreter = new Interpreter(np, indebug, docolor)
       (ast.program.expr zip interpreter.evaledExpr) foreach (
-        (x, y) => docolor((if verbose then x.toString + "\u001b[33m =\u001b[0m " else "") + y.toString)
+        (x, y) => docolor((if verbose then x.toString + "\u001b[33m =\u001b[0m " else "") + interpreter.replaceConstants(y.toString))
       )
     catch
       case e:CompilerException => docolor(e.getMessage)

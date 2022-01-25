@@ -22,7 +22,7 @@ object Parser:
                 op.par = op.par map(par => if typeVars contains (par.tp) then Type(par.tp, true) else par)
                 op.ret = if typeVars contains (op.ret.tp) then Type(op.ret.tp, true) else op.ret
             adt.typeVars = HashSet.from(typeVars)
-        
+
         /**
          * Checks types of all axioms of an adt and sets the variable types
          */ 
@@ -229,4 +229,9 @@ object Parser:
         val avOps = HashMap.from(prog.adts.foldLeft(List.empty[Operation])((o, adt) => 
                         o ++ adt.ops).toArray groupBy(op => op.name))
         val fst = prog.adts map checkAndUpdateTypes
-        new Program(fst, prog.expr map (expr => checkAndUpdateEquationType(avOps, LineTracker.getLine(s"eq(${expr})"))(expr)))
+        val orig_cst = prog.constants
+        val progr = new Program(fst, 
+            prog.expr map (expr => checkAndUpdateEquationType(avOps, LineTracker.getLine(s"eq(${expr})"))(expr)),
+            prog.constants map (c => (c._1, checkAndUpdateEquationType(avOps, LineTracker.getLine(s"const(${c._1})"))(c._2))))
+        progr.orig_constants = orig_cst 
+        progr
