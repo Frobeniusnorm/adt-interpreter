@@ -7,7 +7,7 @@ import java.io.BufferedReader
 class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = println):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
-    
+    val results = evaledExpr map (e => replaceConstants (e.toString))
     def noColor(str:String) = str.replaceAll("\u001b\\[32m", "").replaceAll("\u001b\\[33m", "").replaceAll("\u001b\\[0m", "")
                         .replaceAll("\u001b\\[36m", "").replaceAll("\u001b\\[35m", "")
     

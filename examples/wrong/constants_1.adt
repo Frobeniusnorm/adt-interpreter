@@ -1,0 +1,8 @@
+adt Nat
+sorts Nat
+ops
+    Zero:               -> Nat
+    succ:   Nat         -> Nat
+end
+
+Zero := Zero

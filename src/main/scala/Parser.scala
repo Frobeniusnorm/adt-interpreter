@@ -199,12 +199,12 @@ object Parser:
                         val pass2pars = (pass1pars zip actual.par) map (x => x._1 match
                             case AtomEq(n2, Some(_), ns) => AtomEq(n2, Some(x._2), ns)
                             case AtomEq(n2, None, ns) => 
-                                if ops(n2)(0).ret != x._2 then 
-                                    new TypeException("Could not match \"" + n2 + "\" with expected type \"" + x._2 + "\" in operation call for \"" + name + "\"", currentLine)
+                           //     if ops(n2)(0).ret != x._2 then 
+                           //         throw new TypeException("Could not match \"" + n2 + "\" with expected type \"" + x._2 + "\" in operation call for \"" + name + "\"", currentLine)
                                 x._1
                             case nsep:RecEq => 
-                                if nsep.ref_op.get.ret != x._2 then
-                                    new TypeException("Could not match \"" + nsep.operation + "\" with expected type \"" + x._2 + "\" in operation call for \"" + name + "\"", currentLine)
+                           //     if nsep.ref_op.get.ret != x._2 then
+                           //         throw new TypeException("Could not match \"" + nsep.operation + "\" with expected type \"" + x._2 + "\" in operation call for \"" + name + "\"", currentLine)
                                 x._1
                         )
                         val nre = new RecEq(name, pass2pars)
@@ -233,5 +233,11 @@ object Parser:
         val progr = new Program(fst, 
             prog.expr map (expr => checkAndUpdateEquationType(avOps, LineTracker.getLine(s"eq(${expr})"))(expr)),
             prog.constants map (c => (c._1, checkAndUpdateEquationType(avOps, LineTracker.getLine(s"const(${c._1})"))(c._2))))
+        val doubleDefinitions = prog.constants.filter(c => avOps.contains(c._1))
+        if !doubleDefinitions.isEmpty then
+            if doubleDefinitions.size == 1 then 
+                throw new ParserException("Constant name is already the name of a operation!", LineTracker.getLine(s"const(${doubleDefinitions.head._1}"))
+            else 
+                throw new ParserException("Constant names are already the name of operations! In lines: " + (doubleDefinitions.map(ce => LineTracker.getLine(s"const(${ce._1}")).foldLeft("")((old, cl) => old + ", " + cl)).substring(2))
         progr.orig_constants = orig_cst 
         progr

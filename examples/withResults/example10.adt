@@ -1,0 +1,21 @@
+adt BinTree
+sorts BinTree, T
+ops
+    Null:                       -> BinTree
+    Leaf: T                     -> BinTree
+    Node: T x BinTree x BinTree -> BinTree
+end
+
+adt Nat
+sorts Nat
+ops
+    Zero:               -> Nat
+    succ:   Nat         -> Nat
+end
+
+ZeroLeaf := Leaf(Zero)
+2 := succ(succ(Zero))
+TwoNode := Node(2, ZeroLeaf, ZeroLeaf)
+% := Null
+
+Node(succ(zero), Node(succ(succ(Zero)), Leaf(Zero), ZeroLeaf), Null)

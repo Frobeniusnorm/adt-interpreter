@@ -1,0 +1,9 @@
+adt t1 
+sorts t1
+ops
+    a : -> t1
+    b : -> t1
+end
+
+a := b
+b := a

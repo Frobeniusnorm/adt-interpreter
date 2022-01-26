@@ -46,7 +46,7 @@ class ExamplesTest extends AnyFunSuite with Matchers:
           val interpreter = new Interpreter(np)
 
           val expects = readFile(res.getPath)
-          val test = (interpreter.evaledExpr zip expects) 
+          val test = (interpreter.results zip expects) 
           for (z,y) <- test do
             if z.toString.replaceAll("\u001B\\[[;\\d]*m", "") != y then
               fail("Wrong evaluated expression in Test: \"" + x._1 + "\", expected: \"" + y + "\" got: \"" + z.toString + "\"")

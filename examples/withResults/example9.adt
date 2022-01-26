@@ -1,0 +1,94 @@
+adt Boolean
+sorts Boolean
+ops
+    true:                      -> Boolean
+
+    false:                     -> Boolean
+    not:   Boolean             -> Boolean
+
+    and:   Boolean x Boolean   -> Boolean
+    or:    Boolean x Boolean   -> Boolean
+axs
+    not(true) = false
+    not(false) = true
+    and(true, x) = x
+    and(false,x) = false
+    or(true, x) = true
+    or(false, x) = x
+end
+
+adt Nat
+sorts Nat,Boolean
+ops
+    Zero:               -> Nat
+    succ:   Nat         -> Nat
+    add:    Nat x Nat   -> Nat
+    sub:    Nat x Nat   -> Nat
+    >:      Nat x Nat   -> Boolean
+    <:      Nat x Nat   -> Boolean
+    >eq:     Nat x Nat   -> Boolean
+    <eq:     Nat x Nat   -> Boolean
+axs
+    add(Zero, x) = x
+    add(succ(x), y) = succ(add(x, y))
+    sub(x, Zero) = x
+    sub(Zero, x) = Zero
+    sub(succ(x), succ(y)) = sub(x,y)
+    >(Zero, x) = false
+    >(succ(x), Zero) = true 
+    >(succ(x), succ(y)) = >(x,y)
+    <(Zero, succ(x)) = true  
+    <(x, Zero) = false
+    <(succ(x), succ(y)) = <(x, y)
+    >eq(x, y) = not(<(x,y))
+    <eq(x, y) = not(>(x,y))
+end
+
+adt List
+sorts List, T, Boolean
+ops
+    Nil: -> List
+    Cons: T x List -> List
+    concat: List x List -> List
+    head: List -> T
+    tail: List -> List
+    contains: List x T -> Boolean
+    allSmaller: List x T -> List
+    allGreaterEq: List x T ->List
+    quickSort: List    -> List
+    <: T x T -> Boolean
+    >eq: T x T -> Boolean
+axs
+    concat(Nil, x) = x
+    concat(Cons(x, a), b) = Cons(x, concat(a,b))
+    head(Cons(x, l)) = x
+    tail(Cons(x, l)) = l
+
+    contains(a, x) = | false                if a = Nil
+                    | true                  if head(a) = x
+                    | contains(tail(a), x)  else
+    
+    allSmaller(Nil, e) = Nil
+    allSmaller(Cons(x, l), e) = | Cons(x, allSmaller(l, e)) if <(x, e) = true
+                                | allSmaller(l, e) else
+
+    allGreaterEq(Nil, e) = Nil
+    allGreaterEq(Cons(x, l), e) = | Cons(x, allGreaterEq(l, e)) if >eq(x, e) = true
+                                  | allGreaterEq(l, e) else
+    quickSort(Nil) = Nil
+    quickSort(Cons(x, Nil)) = Cons(x, Nil)
+    quickSort(Cons(x, l)) = concat(quickSort(allSmaller(l, x)), Cons(x, quickSort(allGreaterEq(l, x))))
+end
+
+0 := zero
+1 := succ(0)
+2 := succ(1)
+3 := succ(2)
+4 := succ(3)
+5 := succ(4)
+6 := succ(5)
+7 := succ(6)
+8 := succ(7)
+9 := succ(8)
+
+quickSort(Cons(5, Cons(4, Cons(8, Cons(7, Cons(9, Cons(1, Cons(3, Cons(2, Cons(6, Cons(9, Cons(4, Cons(0, Nil)))))))))))))

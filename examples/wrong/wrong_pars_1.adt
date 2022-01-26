@@ -1,0 +1,20 @@
+adt Nat
+sorts Nat
+ops
+    zero:               -> Nat
+    succ:   Nat         -> Nat
+    +:      Nat x Nat   -> Nat
+axs 
+    +(zero, x) = x
+    +(succ(x), y) = succ(+(x, y))
+end
+
+adt List
+sorts List, T
+ops
+    Nil: -> List
+    +: T x List -> List
+end
+
++(succ(zero), succ(zero))
++(Nil, succ(zero))
