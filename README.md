@@ -97,8 +97,23 @@ You can include expressions between or after the adt definitions, that will be e
 The result will be printed on stdout if the evaluation terminates.
 Since the newest version the reduction strategy for the expressions is leftmost-innermost, before it followed haskells lambda calculus with leftmost-outermost, but innermost makes more sense for this definition.
 
-## TODOs
- - interactive mode after reading adt definition with command line option
+It's possible to define constants for better readability which will be replaced before evaluation by their definition, the output will be transformed back.
+They are defined in a single line by ``<Constant Name> := <Expression>`` e.g.
+```
+adt Nat
+sorts Nat
+ops
+  zero:     -> Nat
+  succ: Nat -> Nat
+end
+
+0:= zero
+ONE:= succ(0)
+2:= succ(ONE)
+3:= succ(2)
+succ(succ(ONE))
+```
+The last expression would be evaluated to ``3``.
 
 ## Contribute
-Work through my unreadable code and look at the todos. I am more than happy to answer questions and review pull requests :)
+Work through my unreadable code or just add feature wishes. I am more than happy to answer questions and review pull requests :)
