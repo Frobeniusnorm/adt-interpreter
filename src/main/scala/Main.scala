@@ -17,8 +17,8 @@ def readFile:String => Array[String] = name => Source.fromFile(name).getLines.to
 
 val allowedFlags = HashSet("--help", "-help", "-d", "-h", "--debug", "--nocolor", "-v", "--verbose")
 
-@main
-def test() = main("examples/correct/quicksort.adt")
+/*@main
+ def test() = main("examples/correct/quicksort.adt") */
 
 class ArgumentParser(args:Seq[String]): 
   val (file, flags) =
