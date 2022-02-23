@@ -4,26 +4,29 @@ import scala.collection.mutable.OpenHashMap
 import java.io.InputStreamReader
 import java.io.BufferedReader
 
-class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = println):
+class Interpreter(prog:Program, debug:Boolean = false, doColor:Boolean = true):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
-    val outputExpr = evaledExpr map (x => outputLibFunctions(x, LineTracker.getLine(s"eq(${x.toString})")))
+    val outputExpr = 
+        if StdLib.used then 
+            evaledExpr map (x => outputLibFunctions(x, LineTracker.getLine(s"eq(${x.toString})")))
+        else evaledExpr
+    ASTFlags.doColor = doColor
     val results = outputExpr map (e => replaceConstants (e.toString))
-    def noColor(str:String) = str.replaceAll("\u001b\\[32m", "").replaceAll("\u001b\\[33m", "").replaceAll("\u001b\\[0m", "")
-                        .replaceAll("\u001b\\[36m", "").replaceAll("\u001b\\[35m", "")
 
-    def outputLibFunctions(eq:Equation, line:Int):Equation = eq match
-        case AtomEq(str, _, _) if StdLib.outputFcts.contains(noColor(str))=>
-            AtomEq(StdLib.outputFcts(noColor(str))(eq, line), None, None)
-        case RecEq(str, pars, ns) =>
-            val np = pars map(outputLibFunctions(_, line))
-            val nr = new RecEq(str, np, ns)
-            nr.ref_op = (eq.asInstanceOf[RecEq]).ref_op
-            if StdLib.outputFcts.contains(noColor(str)) then
-                val output = StdLib.outputFcts(noColor(str))(nr, line)
-                AtomEq(output, None, None)
-            else nr
-        case AtomEq(_, _, _) => eq
+    def outputLibFunctions(eq:Equation, line:Int):Equation = 
+        eq match
+            case AtomEq(str, _, _) if StdLib.outputFcts.contains(str)=>
+                AtomEq(StdLib.outputFcts(str)(eq, line), None, None)
+            case RecEq(str, pars, ns) =>
+                val np = pars map(outputLibFunctions(_, line))
+                val nr = new RecEq(str, np, ns)
+                nr.ref_op = (eq.asInstanceOf[RecEq]).ref_op
+                if StdLib.outputFcts.contains(str) then
+                    val output = StdLib.outputFcts(str)(nr, line)
+                    AtomEq(output, None, None)
+                else nr
+            case AtomEq(_, _, _) => eq
 
     def replaceConstants(eq:String) =
         val constants = prog.constants.map((f, e) => ("\u001b[36m" + f + "\u001b[0m") -> e)
@@ -50,7 +53,7 @@ class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = prin
     def reduceEquation(e:Equation, line:Int):Equation =
         var reader:Option[BufferedReader] = None 
         if debug then
-            log("Reducing Equation: " + e)
+            println("Reducing Equation: " + e)
             reader = Some(new BufferedReader(new InputStreamReader(System.in)))
         var x = e
         var m = applyMatching(x, line)
@@ -58,7 +61,7 @@ class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = prin
         while !m.isEmpty do 
             x = m.get
             if debug then
-                log(" = " + x)
+                println(" = " + x)
                 reader.get.readLine()
             if seen contains x.toString then
                 throw InfiniteRecursionException("Infinite Recursion: Axioms will be applied infinite times on this term!", line)

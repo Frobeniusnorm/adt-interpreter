@@ -41,9 +41,9 @@ def log(color:Boolean)(str:String) =
 @main
 def main(arguments:String*) =
   val ap = ArgumentParser(arguments)
+  val docolor = !ap.flags.get.contains("--nocolor")
   if !ap.file.isEmpty then
     if !ap.flags.get.forall(allowedFlags contains (_)) then throw new ParserException("Unknown passed flag(s):" + ap.flags.get.fold("")(_ + " " + _))
-    val docolor = log(!ap.flags.get.contains("--nocolor"))(_)
     try
       val indebug = ap.flags.get.contains("-d") || ap.flags.get.contains("--debug")
       val verbose = indebug || ap.flags.get.contains("-v") || ap.flags.get.contains("--verbose")
@@ -52,8 +52,11 @@ def main(arguments:String*) =
       val ast = new AST(readFile(ap.file.get))
       val np = Parser.parseProgram(ast.program)
       val interpreter = new Interpreter(np, indebug, docolor)
+      val equalsgn = if docolor then "\u001b[33m =\u001b[0m " else " = "
       (ast.program.expr zip interpreter.results) foreach (
-        (x, y) => docolor((if verbose then x.toString + "\u001b[33m =\u001b[0m " else "") + interpreter.replaceConstants(y.toString))
+        (x, y) => println((if verbose then x.toString + equalsgn else "") + interpreter.replaceConstants(y.toString))
       )
     catch
-      case e:CompilerException => docolor(e.getMessage)
+      case e:CompilerException => 
+        if(docolor) ASTFlags.doColor = docolor
+        println(e.getMessage)

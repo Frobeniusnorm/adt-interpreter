@@ -2,6 +2,11 @@ import scala.collection.immutable.HashSet
 import scala.jdk.FunctionWrappers.RichFunction1AsDoubleToIntFunction
 import scala.annotation.meta.param
 import scala.collection.immutable.HashMap
+
+object ASTFlags{
+    var doColor = false
+}
+
 def stripString(str:String, line:Int):Option[String] = 
     val first = str.indexOf("\"")
     val last = str.lastIndexOf("\"")
@@ -62,13 +67,15 @@ case class AtomEq(op:String, var varType:Option[Type] = None, namespace : Option
     override def getVariables : HashMap[String, AtomEq] = if varType.isEmpty then HashMap.empty[String, AtomEq] else HashMap((op, this))
     override def toString() = 
         if varType.isEmpty then 
-            "\u001b[32m" + operation + "\u001b[0m"
-        else "\u001b[36m" + operation + "\u001b[0m"
+            (if ASTFlags.doColor then "\u001b[32m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m" else "")
+        else 
+            (if ASTFlags.doColor then "\u001b[36m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m" else "")
 
 case class RecEq(op:String, params:Array[Equation], namespace : Option[String] = None) extends Equation(op):
     var ref_op : Option[Operation] = None //reference operation, needed for operation overloading and namespaces
     override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
-    override def toString() = "\u001b[35m" + operation + "\u001b[0m(" + 
+    override def toString() = 
+        (if ASTFlags.doColor then "\u001b[35m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m(" else "")+ 
         params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
 //Conditional Equation
 case class Condition(left:Equation, equals:Boolean, right:Equation):
@@ -93,7 +100,7 @@ case class CaseEq(cases : Array[(Equation, LogicTerm)]) extends Equation(""):
     override def getVariables : HashMap[String, AtomEq] = cases.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e._1.getVariables)
 
 case class Axiom(left:Equation, right:Equation) extends Node:
-    override def toString() = left.toString + "\u001b[33m =\u001b[0m " + right.toString
+    override def toString() = left.toString + (if ASTFlags.doColor then "\u001b[33m " else " ") + '=' + (if ASTFlags.doColor then "\u001b[0m " else " ") + right.toString
 
 class AST(lines:Array[String]):
     LineTracker.clean()
@@ -115,10 +122,13 @@ class AST(lines:Array[String]):
         //include stdlib?
         val stlibocc = unused filter (_._2 == "{use stdlib}")
         if stlibocc.size > 1 then throw new ParserException("More than one import of the stdlib will lead to name collisions", stlibocc(0)._1)
-        val stdlib = if stlibocc.size == 1 then
-            StdLib.used = true
-            StdLib.adts.map(x => parseADT(x.split("\n"), -1))
-        else Array.empty[ADT]
+        val stdlib = 
+            if stlibocc.size == 1 then
+                StdLib.used = true
+                StdLib.adts.map(x => parseADT(x.split("\n"), -1))
+            else
+                StdLib.used = false
+                Array.empty[ADT]
 
         val eqlines = unused filter(x => !withoutSeperators(x._2).isEmpty && x._2 != "{use stdlib}")
         constants = Some(HashMap.from((eqlines filter(_._2.contains(":=")) map (pel => parseConstant(pel._2, pel._1))).toArray))
@@ -267,19 +277,25 @@ class AST(lines:Array[String]):
         def genString(str:List[Char]):Equation = str match
             case Nil => new AtomEq("Nil", Some(Type("List", false)))
             case h::t => new RecEq("Cons", Array(new AtomEq(s"'${h}'", Some(Type("Char"))), genString(t)), None)
-            
+        def genNat(number:Int):Equation = number match
+            case 0 => new AtomEq("zero", Some(Type("Nat")), None)
+            case x => new RecEq("succ", Array(genNat(x-1)), None)
         def helperPEQ = 
             val opening = line.indexOf('(')
             val closing = line.lastIndexOf(')')
             if opening == -1 && closing == -1 then 
-                val possstr = stripString(line, linenb)
-                if !possstr.isEmpty then
+                lazy val possstr = stripString(line, linenb)
+                if StdLib.used && !possstr.isEmpty then
                     new RecEq("fromList", Array(genString(possstr.get.toCharArray.toList)), None)
                 else 
                     val (identifier, namespace) = nameAndNamespace(line)
-                    if !constants.isEmpty && constants.get.contains(identifier) then 
-                        stripConstants(constants.get(identifier), constants.get, linenb)
-                    else AtomEq(identifier, None, namespace)
+                    if StdLib.used && (identifier.toCharArray filter (digit => digit < '0' || digit > '9')).isEmpty then
+                        val number = identifier.toInt
+                        genNat(number)
+                    else
+                        if !constants.isEmpty && constants.get.contains(identifier) then 
+                            stripConstants(constants.get(identifier), constants.get, linenb)
+                        else AtomEq(identifier, None, namespace)
             else if opening == -1 || closing == -1 then
                 throw new ParserException("mismatched brackets" + line, linenb)
             else if closing == opening + 1 then

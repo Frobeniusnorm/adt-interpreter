@@ -7,22 +7,45 @@ object StdLib {
             case AtomEq("Nil", _, _) => "\""
             case RecEq("Cons", pars, _) =>
                 if pars.length != 2 then
-                    throw new ExecutionException("Invalid String construction!", line)
-                val el = pars(0).operation
-                if !el.startsWith("'") || !el.endsWith("'") then
-                     throw new ExecutionException("Strings must consist of characters!", line)
-                el.substring(1, el.length - 1) + convert(pars(1))
-            case _ => throw new ExecutionException("Invalid String construction!", line)
+                    e.toString
+                else
+                    val el = pars(0).operation
+                    if !el.startsWith("'") || !el.endsWith("'") then
+                        e.toString
+                    else el.substring(1, el.length - 1) + convert(pars(1))
+            case _ => e.toString
         e match
             case RecEq("fromList", params, None) =>
                 if params.length == 1 then
                     "\"" + convert(params(0))
-                else throw new ExecutionException("Illegal call to 'fromList', wrong number of parameters!", line)
-            case _ => throw new ExecutionException("Invalid String construction!", line)
+                else e.toString
+            case _ => e.toString
+    def fromNat(e:Equation, line:Int) = 
+        def helper(e:Equation):Option[Int] = e match
+            case AtomEq("0", _, _) => Some(0)
+            case AtomEq("zero", _, _) => Some(0)
+            case AtomEq(numb, _, _) =>
+                try
+                    Some(numb.toInt)
+                catch
+                    case e:Exception => None
+            case RecEq("succ", pars, _) =>
+                if pars.length != 1 then
+                    None
+                else
+                    val rek = helper(pars(0))
+                    if !rek.isEmpty then Some(rek.get + 1)
+                    else None
+            case _ => None
+        helper(e) match
+            case Some(x) => "" + x
+            case None => e.toString
 
     val outputFcts =
         HashMap(
-            "fromList" -> fromList
+            "fromList" -> fromList,
+            "succ" -> fromNat,
+            "zero" -> fromNat
         )
     val adts = Array(
 """adt Char

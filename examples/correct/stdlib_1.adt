@@ -1,3 +1,6 @@
 {use stdlib}
 
 fromList(Cons('*', toList(+("Hello", +(" ", +("World", "!"))))))
+/(6,3)
++(12, 13)
+*(20, 10)
