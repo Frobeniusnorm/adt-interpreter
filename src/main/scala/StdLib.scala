@@ -1,7 +1,10 @@
 import scala.collection.immutable.HashMap
+import java.io.BufferedReader
+import java.io.InputStreamReader
 object StdLib {
 //TODO it would be a lot more efficient if i preprocess the parsing and define the Names and Nodes here
     var used = false
+    //integer to nat generation
     def genNat(zero:Operation, succ:Operation)(number:Int):Equation = number match
         case 0 => 
             val res = new AtomEq("zero", Some(Type("Nat")), None)
@@ -11,6 +14,7 @@ object StdLib {
             val res = new RecEq("succ", Array(genNat(zero, succ)(x-1)), None)
             res.ref_op = Some(succ)
             res
+    //list to string
     def fromList(e:Equation, line:Int) = 
         def convert(eq:Equation):String = eq match
             case AtomEq("Nil", _, _) => "\""
@@ -65,17 +69,54 @@ object StdLib {
                 if(value.isEmpty) throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
                 new AtomEq("'" + value.get.toChar + "'")
             case _ => throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
+    def writeString(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
+        e match
+            case RecEq("writeString", pars, _) if pars.length == 1 =>
+                val ps = pars(0)
+                ps match 
+                    case AtomEq(str, Some(Type("String", false)), _) =>
+                        print(str)
+                    case RecEq("fromList", pars, _) =>
+                        val str = fromList(ps, line).replace("\\n", "\n")
+                        print(str.substring(1, str.length - 1))
+                    case _ => throw ExecutionException("Wrong usage of writeString! Expected String parameter!", line)
+            case _ => throw ExecutionException("Wrong usage of writeString! Expected String parameter!", line)
+        AtomEq("", Some(Type("IO", false)), None)
+    def readLine(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
+        e match
+            case AtomEq("readLine", _, _) =>
+                AtomEq("\"" + (new BufferedReader(new InputStreamReader(System.in))).readLine + "\"", Some(Type("String", false)), None) 
+            case _ => throw ExecutionException("Wrong usage of readLine! Expected no parameter! ", line)
+    def toList(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
+        val cons = ops("Cons").find(p => p.orig_adt == "List").get
+        val nil = ops("Nil").find(p => p.orig_adt == "List").get
+        def generateList(str:List[Char]):Equation = str match
+            case Nil => 
+                val sol = AtomEq("Nil", Some(Type("List", false)), None)
+                sol.ref_op = Some(nil)
+                sol
+            case h::tl =>
+                val sol = RecEq("Cons", Array(AtomEq(s"'${h}'", Some(Type("Char")), None), generateList(tl)), None)
+                sol.ref_op = Some(cons)
+                sol
+        e match
+            case RecEq("toList", Array(AtomEq(str, _, _)), _) if str.charAt(0) == '"' && str.charAt(str.length - 1) == '"' =>
+                generateList(str.substring(1, str.length-1).toCharArray.toList)
+            case _ => throw ExecutionException("Wrong usage of toList! Expected String literal as parameter!", line)
 
     val outputFcts =
         HashMap(
-            "fromList" -> fromList,
             "succ" -> fromNat,
-            "zero" -> fromNat
+            "zero" -> fromNat,
+            "fromList" -> fromList,
         )
     val libFcts = 
         HashMap(
             "toNat" -> (Array("Char"), charToNat),
-            "fromNat" -> (Array("Nat"), natToChar)
+            "fromNat" -> (Array("Nat"), natToChar),
+            "writeString" -> (Array("String"), writeString),
+            "readLine" -> (Array.empty[String], readLine),
+            "toList" -> (Array("String"), toList)
         )
     val adts = Array(
 """adt Char
@@ -104,8 +145,7 @@ sorts Nat, String, IO
 ops
     readNat: -> Nat
     readLine: -> String
-    writeNat: -> IO
-    writeString: -> IO""",
+    writeString: String -> IO""",
 """adt Nat
 sorts Nat
 ops
@@ -165,9 +205,12 @@ ops
     tail: List -> List
     contains: List x T -> Boolean
     subList: List x Nat x Nat -> List
+    append: List x T -> List
 axs
     concat(Nil, x) = x
     concat(Cons(x, a), b) = Cons(x, concat(a,b))
+    append(Nil, x) = Cons(x, Nil)
+    append(Cons(e, l), x) = Cons(e, append(l, x))
     head(Cons(x, l)) = x
     tail(Cons(x, l)) = l
 

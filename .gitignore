@@ -6,3 +6,4 @@
 target/
 project/boot/
 project/plugins/project/
+sbt.json

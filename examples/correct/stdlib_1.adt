@@ -1,7 +1,17 @@
 {use stdlib}
 
 fromList(Cons('*', toList(+("Hello", +(" ", +("World", "!"))))))
+writeString(fromList(concat(toList("kekw"), Cons('\n', Nil))))
 /(6,3)
 +(12, 13)
 *(20, 10)
 fromNat(+(toNat('a'), 3))
+
+adt Reverser
+sorts Reverser, List
+ops
+    reverse : List -> List
+axs
+    reverse(Nil) = Nil
+    reverse(Cons(x, l)) = append(reverse(l), x)
+end
