@@ -68,8 +68,18 @@ class Interpreter(prog:Program, debug:Boolean = false, doColor:Boolean = true):
             seen = seen + x.toString
             m = applyMatching(x, line)
         x
-    def applyLibFunction(e:Equation, line:Int):Option[Equation] = 
-        None
+    def applyLibFunction(e:Equation, line:Int):Option[Equation] =
+        if StdLib.libFcts.contains(e.operation) then
+            val expected = StdLib.libFcts(e.operation)
+            e match
+                case AtomEq(op, _, _) if expected._1.isEmpty =>
+                    Some(expected._2(avOps)(e, line))
+                case re:RecEq if re.params.length == expected._1.length =>
+                    if re.ref_op.get.par.zip(expected._1).forall(x => x._1.tp == x._2) then
+                        Some(expected._2(avOps)(e, line))
+                    else None
+                case _ => None
+        else None
     /**
      * Trys to find an matching axiom, if found applies it, else
      * tries to match one of the parameter equations if the equation itself is a recursive equation.

@@ -2,6 +2,15 @@ import scala.collection.immutable.HashMap
 object StdLib {
 //TODO it would be a lot more efficient if i preprocess the parsing and define the Names and Nodes here
     var used = false
+    def genNat(zero:Operation, succ:Operation)(number:Int):Equation = number match
+        case 0 => 
+            val res = new AtomEq("zero", Some(Type("Nat")), None)
+            res.ref_op = Some(zero)
+            res
+        case x => 
+            val res = new RecEq("succ", Array(genNat(zero, succ)(x-1)), None)
+            res.ref_op = Some(succ)
+            res
     def fromList(e:Equation, line:Int) = 
         def convert(eq:Equation):String = eq match
             case AtomEq("Nil", _, _) => "\""
@@ -20,8 +29,7 @@ object StdLib {
                     "\"" + convert(params(0))
                 else e.toString
             case _ => e.toString
-    def fromNat(e:Equation, line:Int) = 
-        def helper(e:Equation):Option[Int] = e match
+    def convertToInt(e:Equation):Option[Int] = e match
             case AtomEq("0", _, _) => Some(0)
             case AtomEq("zero", _, _) => Some(0)
             case AtomEq(numb, _, _) =>
@@ -33,13 +41,30 @@ object StdLib {
                 if pars.length != 1 then
                     None
                 else
-                    val rek = helper(pars(0))
+                    val rek = convertToInt(pars(0))
                     if !rek.isEmpty then Some(rek.get + 1)
                     else None
             case _ => None
-        helper(e) match
+    def fromNat(e:Equation, line:Int) = 
+        convertToInt(e) match
             case Some(x) => "" + x
             case None => e.toString
+    def charToNat(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) = 
+        val zeroOp = ops("zero").find(op => op.orig_adt == "Nat").get
+        val succOp = ops("succ").find(op => op.orig_adt == "Nat").get
+        e match
+            case RecEq("toNat", Array(AtomEq(str, _, _)), _) =>
+                if str.charAt(0) == '\'' && str.charAt(2) == '\'' then
+                    genNat(zeroOp, succOp)(str.charAt(1).toInt)
+                else throw ExecutionException("Wrong usage of toNat! Expected Char as parameter!", line)
+            case _ => throw ExecutionException("Wrong usage of toNat! Expected Char as parameter!", line)
+    def natToChar(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
+        e match
+            case RecEq("fromNat", Array(eq), _) =>
+                val value = convertToInt(eq)
+                if(value.isEmpty) throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
+                new AtomEq("'" + value.get.toChar + "'")
+            case _ => throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
 
     val outputFcts =
         HashMap(
@@ -47,12 +72,20 @@ object StdLib {
             "succ" -> fromNat,
             "zero" -> fromNat
         )
+    val libFcts = 
+        HashMap(
+            "toNat" -> (Array("Char"), charToNat),
+            "fromNat" -> (Array("Nat"), natToChar)
+        )
     val adts = Array(
 """adt Char
 sorts Char,Nat
 ops
     toNat: Char -> Nat
-    fromNat: Nat -> Char""",    
+    fromNat: Nat -> Char
+axs
+    toNat(fromNat(x)) = x
+    fromNat(toNat(x)) = x""",    
 """adt String
 sorts String, Nat, List
 ops
