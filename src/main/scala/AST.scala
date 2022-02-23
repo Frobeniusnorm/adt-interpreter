@@ -266,7 +266,7 @@ class AST(lines:Array[String]):
             else (res, None)
         def genString(str:List[Char]):Equation = str match
             case Nil => new AtomEq("Nil", Some(Type("List", false)))
-            case h::t => new RecEq("Cons", Array(new AtomEq(s"'${h}'"), genString(t)), None)
+            case h::t => new RecEq("Cons", Array(new AtomEq(s"'${h}'", Some(Type("Char"))), genString(t)), None)
             
         def helperPEQ = 
             val opening = line.indexOf('(')

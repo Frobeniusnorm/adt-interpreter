@@ -17,13 +17,20 @@ object StdLib {
             case RecEq("fromList", params, None) =>
                 if params.length == 1 then
                     "\"" + convert(params(0))
-                else throw new ExecutionException("Invalid String construction!", line)
+                else throw new ExecutionException("Illegal call to 'fromList', wrong number of parameters!", line)
             case _ => throw new ExecutionException("Invalid String construction!", line)
-  
-    val outputFcts = HashMap(
-      "fromList" -> fromList
-    )
-    val adts = Array("""adt String
+
+    val outputFcts =
+        HashMap(
+            "fromList" -> fromList
+        )
+    val adts = Array(
+"""adt Char
+sorts Char,Nat
+ops
+    toNat: Char -> Nat
+    fromNat: Nat -> Char""",    
+"""adt String
 sorts String, Nat, List
 ops
     fromList: List -> String
@@ -34,12 +41,13 @@ ops
 axs
     concat(fromList(a), fromList(b)) = fromList(concat(a, b)) //as List operation 
     String.+(a,b) = concat(a,b)
-    subString(fromList(x), a, b) = fromList(subList(x, a, b))""",
+    subString(fromList(x), a, b) = fromList(subList(x, a, b))
+    toList(fromList(x)) = x""",
 """adt IO
 sorts Nat, String, IO
 ops
     readNat: -> Nat
-    readString: -> String
+    readLine: -> String
     writeNat: -> IO
     writeString: -> IO""",
 """adt Nat
