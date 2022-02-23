@@ -1,0 +1,53 @@
+adt int
+sorts int
+ops
+    zero:               -> int
+    succ:   int         -> int
+end
+
+adt boolean
+sorts boolean
+ops
+    true:                      -> boolean
+
+    false:                     -> boolean
+end
+
+adt S
+sorts S, int, boolean
+ops
+    Empty:  -> S
+    Add:    S x int -> S
+    isIn:   S x int -> boolean
+axs
+    isIn(Empty, x) = false
+    isIn(Add(rs, e), x) = | true if x = e
+                          | isIn(rs, x) else
+end
+
+adt G
+sorts G, S, int, boolean 
+ops
+    New:    -> G
+    Node: G x int -> G
+    Edge: G x int x int -> G
+    collect: G  -> S
+    path: G x int x int -> boolean
+    isRoot: G x int -> boolean
+axs
+    collect(New) = Empty
+    collect(Node(g, n)) = Add(collect(g), n)
+    collect(Edge(g,a,b)) = Add(Add(collect(g), a), b)
+    path(New, x,y) = false
+    path(g, x,x) = true
+    path(Edge(g,a,b),a,b) = true
+    path(Node(g, n), x, y) = path(g,x,y)
+    path(Edge(g,a,b), x, y) = | true if (a=x | path(g,a,x) = true) & (b=y | path(g,b,y)  = true) | path(g,x,y) = true
+                              | false else
+    isRoot(New, x) = false
+    isRoot(Node(g,n),x) = | true if (x=n) & isIn(collect(g), x) = false
+                          | true if isRoot(g,x) = true
+                          | false else
+    isRoot(Edge(g,a,b),x) = | true if path(g, b, x) = false
+                            | false else
+end

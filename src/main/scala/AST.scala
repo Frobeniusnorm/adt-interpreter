@@ -2,6 +2,18 @@ import scala.collection.immutable.HashSet
 import scala.jdk.FunctionWrappers.RichFunction1AsDoubleToIntFunction
 import scala.annotation.meta.param
 import scala.collection.immutable.HashMap
+def stripString(str:String, line:Int):Option[String] = 
+    val first = str.indexOf("\"")
+    val last = str.lastIndexOf("\"")
+    if first != -1 && first != last then
+        //check if first and last only consists of seperators
+        val stump = (if first > 1 then str.substring(1, first) else "") + 
+                    (if last+1 < str.length then str.substring(last + 1) else "")
+        if !stump.find(c => c != ' ' && c != '\t').isEmpty then
+            throw new ParserException("illegal String: " + str, line)
+        Some(str.substring(first + 1, last))
+    else None
+
 def stripComment(str:String) = 
     if str.contains("//") then
         str.split("//")(0)
@@ -99,9 +111,18 @@ class AST(lines:Array[String]):
         //lines in adts as hashset for contains performance
         val containedLines = HashSet.from((adtspaces flatMap (x => x(0) to x(1))))
         //lines that are not already in scope of a adt
-        val eqlines = (0 until lines.length) filter(!containedLines.contains(_)) map(i => (i, lines(i))) filter(x => !withoutSeperators(x._2).isEmpty)
+        val unused = (0 until lines.length) filter(!containedLines.contains(_)) map(i => (i, lines(i)))
+        //include stdlib?
+        val stlibocc = unused filter (_._2 == "{use stdlib}")
+        if stlibocc.size > 1 then throw new ParserException("More than one import of the stdlib will lead to name collisions", stlibocc(0)._1)
+        val stdlib = if stlibocc.size == 1 then
+            StdLib.used = true
+            StdLib.adts.map(x => parseADT(x.split("\n"), -1))
+        else Array.empty[ADT]
+
+        val eqlines = unused filter(x => !withoutSeperators(x._2).isEmpty && x._2 != "{use stdlib}")
         constants = Some(HashMap.from((eqlines filter(_._2.contains(":=")) map (pel => parseConstant(pel._2, pel._1))).toArray))
-        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray, 
+        new Program(adtspaces.map(arr => parseADT(lines slice(arr(0), arr(1)), arr(0))).toArray ++ stdlib, 
                     (eqlines filter(!_._2.contains(":=")) map (pel => parseEq(pel._2, pel._1))).toArray,
                     constants.get)
     
@@ -112,47 +133,47 @@ class AST(lines:Array[String]):
                 val parts = lines(0).split(" ")
                 if lines(0).startsWith("adt ") && parts.length == 2 then
                 parts(1)  
-                else throw new ParserException("Illegal adt name: " + lines(0), starts)
-            else throw new ParserException("Empty ADTs are not allowed", starts)
+                else throw new ParserException("Illegal adt name: " + lines(0), if starts == -1 then -1 else starts)
+            else throw new ParserException("Empty ADTs are not allowed", if starts == -1 then -1 else starts)
         if LineTracker.containsKey("adt(" + name + ")") then 
-            throw new ParserException(s"adt \"${name}\" was declared multiple times", starts)
+            throw new ParserException(s"adt \"${name}\" was declared multiple times", if starts == -1 then -1 else starts)
         val sorts = 
             val sortlines_wi = lines.zipWithIndex.filter(_._1.startsWith("sorts "))
             val sortlines = sortlines_wi map (_._1)
-            if(sortlines.length > 1) throw new ParserException("Too many sort statements for one datatype!", sortlines_wi(1)._2 + starts)
+            if(sortlines.length > 1) throw new ParserException("Too many sort statements for one datatype!", if starts == -1 then -1 else sortlines_wi(1)._2 + starts)
             if(sortlines.length < 1) throw new ParserException("Every Datatype needs one sorts-statement, because it must at least sort itself!", starts)
-            if(sortlines(0).length < 7) throw new ParserException("A Datatype must at least sort itself!", sortlines_wi(0)._2 + starts)
-            LineTracker.registerLine("sorts(" + name + ")", sortlines_wi(0)._2 + starts)
+            if(sortlines(0).length < 7) throw new ParserException("A Datatype must at least sort itself!", if starts == -1 then -1 else sortlines_wi(0)._2 + starts)
+            LineTracker.registerLine("sorts(" + name + ")", if starts == -1 then -1 else sortlines_wi(0)._2 + starts)
             sortlines(0).substring(6).split(",").map(x => 
-                stripNameFromSeperators(x, sortlines_wi(0)._2 + starts))
+                stripNameFromSeperators(x, if starts == -1 then -1 else sortlines_wi(0)._2 + starts))
         val ops = 
             val opslines = lines.zipWithIndex.filter((x, i) => x.startsWith("ops"))
             if(opslines.length == 0) throw new ParserException("Datatypes need an operations part, even if it may be empty", starts)
-            if(opslines.length > 1) throw new ParserException("Only one operations part is allowed per datatype!", opslines(1)._2 + starts)
+            if(opslines.length > 1) throw new ParserException("Only one operations part is allowed per datatype!", if starts == -1 then -1 else opslines(1)._2 + starts)
             if(opslines(0)._1.length != 3) throw new ParserException("Illegal characters after ops: " + opslines(0)._1, opslines(0)._2)
             val start = opslines(0)._2
-            LineTracker.registerLine("ops(" + name + ")", start)
+            LineTracker.registerLine("ops(" + name + ")", if starts == -1 then -1 else starts + start)
             val sortsline = LineTracker.getLine("sorts(" + name + ")")
-            if starts + start < sortsline then throw new ParserException("operations part must be declared AFTER sorts part", starts + start)
+            if starts + start < sortsline then throw new ParserException("operations part must be declared AFTER sorts part", if starts == -1 then -1 else starts + start)
             val term_cand = lines.zipWithIndex.filter((x, i) => x.startsWith("axs")).map(_._2)
             val term = if term_cand.length >= 1 then term_cand(0) else lines.length
             if term < start then 
-                throw new ParserException("axiom part must be declared AFTER operations part", term + starts)
-            lines.slice(start + 1, term).zipWithIndex.filter(l => !withoutSeperators(l._1).isEmpty).map(l => parseOP(l._1, l._2 + start + 1 + starts))
+                throw new ParserException("axiom part must be declared AFTER operations part", if starts == -1 then -1 else term + starts)
+            lines.slice(start + 1, term).zipWithIndex.filter(l => !withoutSeperators(l._1).isEmpty).map(l => parseOP(l._1, if starts == -1 then -1 else l._2 + start + 1 + starts))
             
         ops foreach(op => op.orig_adt = name)
         val axs = 
             val axslines = lines.zipWithIndex.filter((x, i) => x.startsWith("axs"))
             if axslines.length == 0 then Array[Axiom]()
             else
-                if(axslines.length > 1) throw new ParserException("Only one axiom part is allowed per datatype!", axslines(1)._2 + starts)
-                if(axslines(0)._1.length != 3) throw new ParserException("Illegal characters after axs: " + axslines(0)._1, axslines(0)._2 + starts)
+                if(axslines.length > 1) throw new ParserException("Only one axiom part is allowed per datatype!", if starts == -1 then -1 else axslines(1)._2 + starts)
+                if(axslines(0)._1.length != 3) throw new ParserException("Illegal characters after axs: " + axslines(0)._1, if starts == -1 then -1 else axslines(0)._2 + starts)
                 val start = axslines(0)._2
-                LineTracker.registerLine("axs(" + name + ")", start)
+                LineTracker.registerLine("axs(" + name + ")", if starts == -1 then -1 else start + starts)
                 val nspace = lines.slice(start + 1, lines.length)
-                nspace.zipWithIndex map((x,i) => parseAx(i, nspace, start + 1 + starts)) filter(!_.isEmpty) map(_.get)
+                nspace.zipWithIndex map((x,i) => parseAx(i, nspace, if starts == -1 then -1 else start + 1 + starts)) filter(!_.isEmpty) map(_.get)
 
-        LineTracker.registerLine("adt(" + name + ")", starts)
+        LineTracker.registerLine("adt(" + name + ")", if starts == -1 then -1 else starts)
         new ADT(name, axs, HashSet[Operation]() ++ ops, new HashSet[String]() ++ sorts)
     
     def parseConstant(line:String, linenb:Int):(String, Equation) = 
@@ -189,16 +210,20 @@ class AST(lines:Array[String]):
         if line == null || (withoutSeperators(line)).isEmpty then None //has already been consumed
         else
             val parts = splitAtFirst(line)('=')
-            if(parts.length != 2) throw new ParserException("An Axiom is always an equation with a left hand and right hand side sperated by a '='! ", index + starts)
+            if(parts.length != 2) 
+                throw new ParserException("An Axiom is always an equation with a left hand and right hand side sperated by a '='! "
+                    , if starts == -1 then -1 else index + starts)
             val axs = if withoutSeperators(parts(1)) startsWith("|") then
                 //yeay pain
                 val csl = lines.drop(index + 1).zipWithIndex takeWhile(l => 
                     withoutSeperators(l._1) startsWith("|")
                 )
                 csl foreach (l => lines(l._2 + index + 1) = null)
-                new Axiom(parseEq(parts(0), index + starts), parseCaseEq(Array(parts(1)) ++ (csl map (_._1)), index + starts))
-            else new Axiom(parseEq(parts(0), index + starts), parseEq(parts(1), index + starts))
-            LineTracker.registerLine("axseq(" + axs.left + ")", index + starts)
+                new Axiom(parseEq(parts(0), if starts == -1 then -1 else index + starts), 
+                            parseCaseEq(Array(parts(1)) ++ (csl map (_._1)), if starts == -1 then -1 else index + starts))
+            else new Axiom(parseEq(parts(0), if starts == -1 then -1 else index + starts), 
+                        parseEq(parts(1), if starts == -1 then -1 else index + starts))
+            LineTracker.registerLine("axseq(" + axs.left + ")", if starts == -1 then -1 else index + starts)
             Some(axs)
 
     def stripConstants(line:Equation, const:HashMap[String, Equation], linenb:Int):Equation = line match 
@@ -239,14 +264,22 @@ class AST(lines:Array[String]):
                     throw new ParserException("Invalid namespace decleration (\"" + name + "\")!", linenb)
                 (parts(1), Some(parts(0)))
             else (res, None)
+        def genString(str:List[Char]):Equation = str match
+            case Nil => new AtomEq("Nil", Some(Type("List", false)))
+            case h::t => new RecEq("Cons", Array(new AtomEq(s"'${h}'"), genString(t)), None)
+            
         def helperPEQ = 
             val opening = line.indexOf('(')
             val closing = line.lastIndexOf(')')
             if opening == -1 && closing == -1 then 
-                val (identifier, namespace) = nameAndNamespace(line)
-                if !constants.isEmpty && constants.get.contains(identifier) then 
-                    stripConstants(constants.get(identifier), constants.get, linenb)
-                else AtomEq(identifier, None, namespace)
+                val possstr = stripString(line, linenb)
+                if !possstr.isEmpty then
+                    new RecEq("fromList", Array(genString(possstr.get.toCharArray.toList)), None)
+                else 
+                    val (identifier, namespace) = nameAndNamespace(line)
+                    if !constants.isEmpty && constants.get.contains(identifier) then 
+                        stripConstants(constants.get(identifier), constants.get, linenb)
+                    else AtomEq(identifier, None, namespace)
             else if opening == -1 || closing == -1 then
                 throw new ParserException("mismatched brackets" + line, linenb)
             else if closing == opening + 1 then

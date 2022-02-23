@@ -193,7 +193,8 @@ object Parser:
                             if !ns.isEmpty then
                                 fe filter (op => op.orig_adt == ns.get)
                             else fe
-                        if actual_cand.length > 1 then throw new TypeException("Ambiguous operation usage for operation \"" + name + "\"", currentLine)
+                        if actual_cand.length > 1 then 
+                            throw new TypeException("Ambiguous operation usage for operation \"" + name + "\"", currentLine)
                         if actual_cand.length == 0 then throw new TypeException("No fitting definition for operation \"" + name + "\"", currentLine)
                         val actual = actual_cand(0)
                         val pass2pars = (pass1pars zip actual.par) map (x => x._1 match

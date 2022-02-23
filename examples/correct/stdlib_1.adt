@@ -1,0 +1,3 @@
+{use stdlib}
+
++("Hello", +(" ", +("World", "!")))

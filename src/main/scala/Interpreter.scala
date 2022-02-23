@@ -7,10 +7,24 @@ import java.io.BufferedReader
 class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = println):
     val (avOps, avAxs) = typeAndCollectAxioms(prog)
     val evaledExpr = (prog.expr map (x => reduceEquation(x, LineTracker.getLine(s"eq(${x.toString})"))))
-    val results = evaledExpr map (e => replaceConstants (e.toString))
+    val outputExpr = evaledExpr map (x => outputLibFunctions(x, LineTracker.getLine(s"eq(${x.toString})")))
+    val results = outputExpr map (e => replaceConstants (e.toString))
     def noColor(str:String) = str.replaceAll("\u001b\\[32m", "").replaceAll("\u001b\\[33m", "").replaceAll("\u001b\\[0m", "")
                         .replaceAll("\u001b\\[36m", "").replaceAll("\u001b\\[35m", "")
-    
+
+    def outputLibFunctions(eq:Equation, line:Int):Equation = eq match
+        case AtomEq(str, _, _) if StdLib.outputFcts.contains(noColor(str))=>
+            AtomEq(StdLib.outputFcts(noColor(str))(eq, line), None, None)
+        case RecEq(str, pars, ns) =>
+            val np = pars map(outputLibFunctions(_, line))
+            val nr = new RecEq(str, np, ns)
+            nr.ref_op = (eq.asInstanceOf[RecEq]).ref_op
+            if StdLib.outputFcts.contains(noColor(str)) then
+                val output = StdLib.outputFcts(noColor(str))(nr, line)
+                AtomEq(output, None, None)
+            else nr
+        case AtomEq(_, _, _) => eq
+
     def replaceConstants(eq:String) =
         val constants = prog.constants.map((f, e) => ("\u001b[36m" + f + "\u001b[0m") -> e)
         var r = eq
@@ -51,6 +65,8 @@ class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = prin
             seen = seen + x.toString
             m = applyMatching(x, line)
         x
+    def applyLibFunction(e:Equation, line:Int):Option[Equation] = 
+        None
     /**
      * Trys to find an matching axiom, if found applies it, else
      * tries to match one of the parameter equations if the equation itself is a recursive equation.
@@ -58,10 +74,12 @@ class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = prin
      */
     def applyMatching(e:Equation, line:Int):Option[Equation] = 
         e match
-            case x:AtomEq => None
+            case x:AtomEq => 
+                applyLibFunction(x, line) //lib functions are the only ones that may match an Atomic Equation
             case x:RecEq =>
                 var found = List.empty[(Int, Equation)]
                 var i = 0
+                //try to match a parameter
                 while i < x.params.length do //sorry Curry and Howard and Holy Monad in heaven, forgive me my imperative sins
                     val rek = applyMatching(x.params(i), line)
                     if !rek.isEmpty then
@@ -74,7 +92,8 @@ class Interpreter(prog:Program, debug:Boolean = false, log:String => Unit = prin
                                             ax => !ax._2.isEmpty) map(ax => (ax._1, ax._2.get))
                     if !matching.isEmpty then
                         Some(applyAxiom(x, matching.head._1, matching.head._2, line))
-                    else None
+                    else //Axiom did not match either, try to match a lib function
+                        applyLibFunction(x, line)
                 else 
                     val np = Array.from(x.params)
                     found.foreach((i, pe) => np(i) = pe)
