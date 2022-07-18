@@ -7,3 +7,7 @@ target/
 project/boot/
 project/plugins/project/
 sbt.json
+interpreter.jar
+project/metals.sbt
+project/project/metals.sbt
+project/project/project.sbt

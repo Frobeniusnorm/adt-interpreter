@@ -69,7 +69,8 @@ object StdLib {
                 if(value.isEmpty) throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
                 new AtomEq("'" + value.get.toChar + "'")
             case _ => throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
-    def writeString(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
+//Not necessary, since a string expression can be just printed inplace
+/*     def writeString(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
         e match
             case RecEq("writeString", pars, _) if pars.length == 1 =>
                 val ps = pars(0)
@@ -81,7 +82,7 @@ object StdLib {
                         print(str.substring(1, str.length - 1))
                     case _ => throw ExecutionException("Wrong usage of writeString! Expected String parameter!", line)
             case _ => throw ExecutionException("Wrong usage of writeString! Expected String parameter!", line)
-        AtomEq("", Some(Type("IO", false)), None)
+        AtomEq("", Some(Type("IO", false)), None) */
     def readLine(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
         e match
             case AtomEq("readLine", _, _) =>
@@ -114,7 +115,6 @@ object StdLib {
         HashMap(
             "toNat" -> (Array("Char"), charToNat),
             "fromNat" -> (Array("Nat"), natToChar),
-            "writeString" -> (Array("String"), writeString),
             "readLine" -> (Array.empty[String], readLine),
             "toList" -> (Array("String"), toList)
         )
@@ -144,8 +144,7 @@ axs
 sorts Nat, String, IO
 ops
     readNat: -> Nat
-    readLine: -> String
-    writeString: String -> IO""",
+    readLine: -> String""",
 """adt Nat
 sorts Nat
 ops

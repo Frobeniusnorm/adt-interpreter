@@ -1,0 +1,14 @@
+{use stdlib}
+
+adt Reverser
+sorts Reverser, List
+ops
+    reverse : List -> List
+axs
+    reverse(Nil) = Nil
+    reverse(Cons(x, l)) = append(reverse(l), x)
+end
+
+fromList(reverse(Cons(fromNat(toNat('0')), Cons(fromNat(toNat('1')), Cons(fromNat(toNat('2')), Cons(fromNat(toNat('3')), Nil))))))
+fromList(reverse(toList("0123")))
+fromList(reverse(['0','1','2','3']))

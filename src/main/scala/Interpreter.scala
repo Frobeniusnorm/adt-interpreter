@@ -53,7 +53,9 @@ class Interpreter(prog:Program, debug:Boolean = false, doColor:Boolean = true):
     def reduceEquation(e:Equation, line:Int):Equation =
         var reader:Option[BufferedReader] = None 
         if debug then
+            ASTFlags.doColor = doColor
             println("Reducing Equation: " + e)
+            ASTFlags.doColor = false
             reader = Some(new BufferedReader(new InputStreamReader(System.in)))
         var x = e
         var m = applyMatching(x, line)
@@ -61,7 +63,9 @@ class Interpreter(prog:Program, debug:Boolean = false, doColor:Boolean = true):
         while !m.isEmpty do 
             x = m.get
             if debug then
+                ASTFlags.doColor = doColor
                 println(" = " + x)
+                ASTFlags.doColor = false
                 reader.get.readLine()
             if seen contains x.toString then
                 throw InfiniteRecursionException("Infinite Recursion: Axioms will be applied infinite times on this term!", line)

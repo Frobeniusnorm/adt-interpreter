@@ -59,7 +59,7 @@ object Parser:
                         throw new ParserException("Variable on right hand side has no type (wtf)!", currentLine)
                     if ae2.varType.isEmpty then
                         throw new ParserException("Variable on left hand side has no type (wtf)!", currentLine)
-                    if ae1.varType.get != ae2.varType.get then
+                    if ae1.varType.get != ae2.varType.get && !(ae1.varType.get.isGeneric && !ae2.varType.get.isGeneric) then
                         throw new TypeException("Could not match variable type for \"" + v1 + "\"! " +
                           "Type of variable on left hand side: \"" + ae2.varType.get + "\", on right hand side: \"" + ae1.varType.get + "\"", currentLine)
                 )
@@ -134,7 +134,10 @@ object Parser:
                     val op_cand = ops(name)
                     if op_cand.length == 1 then
                         val op = op_cand(0)
-                        if op.par.length != e.length then throw new TypeException("Not enough parameters for operation \"" + name + "\"", currentLine)
+                        if op.par.length > e.length then 
+                            throw new TypeException("Not enough parameters for operation \"" + name + "\"", currentLine)
+                        if op.par.length < e.length then 
+                            throw new TypeException("Too many parameters for operation \"" + name + "\"", currentLine)
                         var alrdTyped = HashMap.empty[String, Type] //maps generics to actual types (should only happen during equation evaluation)
                         val np = 
                             for zeqp <- (op.par zip e) yield

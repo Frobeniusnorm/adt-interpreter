@@ -1,7 +1,7 @@
 {use stdlib}
 
 fromList(Cons('*', toList(+("Hello", +(" ", +("World", "!"))))))
-writeString(fromList(concat(toList("kekw"), Cons('\n', Nil))))
+fromList(concat(toList("test"), Cons('\n', Nil)))
 /(6,3)
 +(12, 13)
 *(20, 10)

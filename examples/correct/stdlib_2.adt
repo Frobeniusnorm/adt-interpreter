@@ -1,0 +1,4 @@
+{use stdlib}
+
+[0, 1, 2, 3, 4]
+contains(concat(['H', 'e', 'l', 'l', 'o'], ['W', 'o', 'r', 'l', 'd']), 'd')

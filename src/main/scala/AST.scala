@@ -19,6 +19,20 @@ def stripString(str:String, line:Int):Option[String] =
         Some(str.substring(first + 1, last))
     else None
 
+def stripList(str:String, line:Int):Option[List[String]] = 
+    val first = str.indexOf("[")
+    val last = str.lastIndexOf("]")
+    if first != -1 && last != -1 then
+        //get each List Element and convert it in a Cons and Nil concatenation
+        val listcnt = str.substring(first + 1, last)
+        if listcnt.isEmpty() then
+            Some(List())
+        else
+            Some(listcnt.split(",").toList)
+    else if (first == -1 || last != -1) && first != last then
+        throw new ParserException("illegal String: " + str, line)
+    else None
+
 def stripComment(str:String) = 
     if str.contains("//") then
         str.split("//")(0)
@@ -41,6 +55,7 @@ def countMatches(str:String, pattern:String) =
 
 case class Type(tp:String, isGeneric:Boolean = false):
     override def toString:String = tp
+
 abstract class Node
 case class Program(adts:Array[ADT], expr:Array[Equation] = Array.empty[Equation], 
         constants:HashMap[String, Equation] = HashMap.empty[String,Equation]) extends Node:
@@ -75,7 +90,7 @@ case class RecEq(op:String, params:Array[Equation], namespace : Option[String] =
     var ref_op : Option[Operation] = None //reference operation, needed for operation overloading and namespaces
     override def getVariables : HashMap[String, AtomEq] = params.foldLeft(HashMap.empty[String, AtomEq])((o, e) => o ++ e.getVariables)
     override def toString() = 
-        (if ASTFlags.doColor then "\u001b[35m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m(" else "")+ 
+        (if ASTFlags.doColor then "\u001b[35m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m" else "") + "(" + 
         params.zipWithIndex.map((x, i) => x.toString + (if i != params.length -1 then ", " else "")).fold("")(_+_) + ")"
 //Conditional Equation
 case class Condition(left:Equation, equals:Boolean, right:Equation):
@@ -260,12 +275,14 @@ class AST(lines:Array[String]):
         //extracts only the operation for the outer most brackets and leaves the other ones as strings
         if line.contains(":=") then throw new ParserException("Constant definitions are only allowed on the global scope!", linenb)
         def splitFlatParamSpace(str:String):Array[String] = 
-            val flr = str.foldLeft((0, List[String]("")))((acc, x) => 
+            //two types of brackets: (), []
+            val flr = str.foldLeft((0, 0, List[String]("")))((acc, x) => 
                 (if x == '(' then acc._1 + 1 else if x == ')' then acc._1 - 1 else acc._1,
-                if x == ',' && acc._1 == 0 then "" :: acc._2 else (acc._2.head + x) :: acc._2.tail)    
+                 if x == '[' then acc._2 + 1 else if x == ']' then acc._2 - 1 else acc._2,
+                if x == ',' && acc._1 == 0 && acc._2 == 0 then "" :: acc._3 else (acc._3.head + x) :: acc._3.tail)    
             )
-            if flr._1 != 0 then throw new ParserException("mismatched brackets", linenb)
-            else flr._2.reverse.toArray
+            if flr._1 != 0 || flr._2 != 0 then throw new ParserException("mismatched brackets", linenb)
+            else flr._3.reverse.toArray
         def nameAndNamespace(name:String):(String, Option[String]) =
             val res = stripNameFromSeperators(name, linenb)
             if res.contains(".") then
@@ -280,14 +297,20 @@ class AST(lines:Array[String]):
         def genNat(number:Int):Equation = number match
             case 0 => new AtomEq("zero", Some(Type("Nat")), None)
             case x => new RecEq("succ", Array(genNat(x-1)), None)
+        def genList(els:List[String]):Equation = els match
+            case Nil => new AtomEq("Nil", Some(Type("List", false)))
+            case h::t => new RecEq("Cons", Array(parseEq(h, linenb), genList(t)))
         def helperPEQ = 
             val opening = line.indexOf('(')
             val closing = line.lastIndexOf(')')
             if opening == -1 && closing == -1 then 
                 lazy val possstr = stripString(line, linenb)
+                lazy val posslst = stripList(line, linenb)
                 if StdLib.used && !possstr.isEmpty then
                     new RecEq("fromList", Array(genString(possstr.get.toCharArray.toList)), None)
-                else 
+                else if StdLib.used && !posslst.isEmpty then
+                    genList(posslst.get)         
+                else
                     val (identifier, namespace) = nameAndNamespace(line)
                     if StdLib.used && (identifier.toCharArray filter (digit => digit < '0' || digit > '9')).isEmpty then
                         val number = identifier.toInt
