@@ -18,7 +18,7 @@ def readFile:String => Array[String] = name => Source.fromFile(name).getLines.to
 val allowedFlags = HashSet("--help", "-help", "-d", "-h", "--debug", "--nocolor", "-v", "--verbose")
 
 @main
-def test() = main("examples/correct/stdlib_2.adt")
+def test() = main("examples/correct/stdlib_1.adt")
 
 class ArgumentParser(args:Seq[String]): 
   val (file, flags) =
@@ -54,7 +54,7 @@ def main(arguments:String*) =
       val interpreter = new Interpreter(np, indebug, docolor)
       val equalsgn = if docolor then "\u001b[33m =\u001b[0m " else " = "
       (ast.program.expr zip interpreter.results) foreach (
-        (x, y) => println((if verbose then x.toString + equalsgn else "") + interpreter.replaceConstants(y.toString))
+        (x, y) => println((if verbose then x.toString + equalsgn else "") + y.toString)
       )
     catch
       case e:CompilerException => 
