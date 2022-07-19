@@ -7,6 +7,28 @@ object ASTFlags{
     var doColor = false
 }
 
+//restores color codes after line break
+def includeLineBreak(str:String) = 
+    if str.contains("\\n") then
+        val chr = str.toCharArray
+        val builder = StringBuilder()
+        var skip = 0
+        var currColor = 0
+        for i <- 0 to chr.length - 1 do
+            if skip <= 0 then
+                if chr(i) == '\\' && i < chr.length - 1 && chr(i + 1) == 'n' then
+                    builder.append(s"\n\u001b[${currColor}m")
+                    skip = 1
+                else if chr(i) == '\u001b' && i < chr.length - 1 then
+                    val colorCodes = chr.drop(i + 2).takeWhile(_ != 'm')
+                    currColor = String(colorCodes).toInt
+                    builder.append(s"\u001b[${currColor}m")
+                    skip = 1 + colorCodes.length + 1
+                else builder.append(chr(i))
+            else skip -= 1
+        builder.toString
+    else str
+
 def stripString(str:String, line:Int):Option[String] = 
     val first = str.indexOf("\"")
     val last = str.lastIndexOf("\"")
@@ -82,7 +104,7 @@ case class AtomEq(op:String, var varType:Option[Type] = None, namespace : Option
     override def getVariables : HashMap[String, AtomEq] = if varType.isEmpty then HashMap.empty[String, AtomEq] else HashMap((op, this))
     override def toString() = 
         if varType.isEmpty then 
-            (if ASTFlags.doColor then "\u001b[32m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m" else "")
+            includeLineBreak((if ASTFlags.doColor then "\u001b[32m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m" else ""))
         else 
             (if ASTFlags.doColor then "\u001b[36m" else "") + operation + (if ASTFlags.doColor then "\u001b[0m" else "")
 

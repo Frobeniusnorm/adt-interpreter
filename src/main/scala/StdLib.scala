@@ -27,12 +27,14 @@ object StdLib {
                         e.toString
                     else el.substring(1, el.length - 1) + convert(pars(1))
             case _ => e.toString
+
         e match
             case RecEq("fromList", params, None) =>
                 if params.length == 1 then
                     "\"" + convert(params(0))
                 else e.toString
             case _ => e.toString
+
     def convertToInt(e:Equation):Option[Int] = e match
             case AtomEq("0", _, _) => Some(0)
             case AtomEq("zero", _, _) => Some(0)
@@ -69,20 +71,6 @@ object StdLib {
                 if(value.isEmpty) throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
                 new AtomEq("'" + value.get.toChar + "'")
             case _ => throw ExecutionException("Wrong usage of fromNat! Expected Nat as parameter!", line)
-//Not necessary, since a string expression can be just printed inplace
-/*     def writeString(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
-        e match
-            case RecEq("writeString", pars, _) if pars.length == 1 =>
-                val ps = pars(0)
-                ps match 
-                    case AtomEq(str, Some(Type("String", false)), _) =>
-                        print(str)
-                    case RecEq("fromList", pars, _) =>
-                        val str = fromList(ps, line).replace("\\n", "\n")
-                        print(str.substring(1, str.length - 1))
-                    case _ => throw ExecutionException("Wrong usage of writeString! Expected String parameter!", line)
-            case _ => throw ExecutionException("Wrong usage of writeString! Expected String parameter!", line)
-        AtomEq("", Some(Type("IO", false)), None) */
     def readLine(ops:HashMap[String, Array[Operation]])(e:Equation, line:Int) =
         e match
             case AtomEq("readLine", _, _) =>

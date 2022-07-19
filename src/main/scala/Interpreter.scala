@@ -29,7 +29,7 @@ class Interpreter(prog:Program, debug:Boolean = false, doColor:Boolean = true):
             case AtomEq(_, _, _) => eq
 
     def replaceConstants(eq:String) =
-        val constants = prog.constants.map((f, e) => ("\u001b[36m" + f + "\u001b[0m") -> e)
+        val constants = prog.constants.map((f, e) => includeLineBreak("\u001b[36m" + f + "\u001b[0m") -> e)
         var r = eq
         var found = constants.find(c => r.contains(c._2.toString))
         while !found.isEmpty do 
